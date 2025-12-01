@@ -55,7 +55,7 @@ async def custom_form_validation_error(request, exc):
 @app.get("/", )
 async def index():
     logger.info({"message": "logging from the root logger"})
-    return {"message": "Welcome to the project."}
+    return {"message": f"Welcome to the {settings.APP_NAME} project."}
 
 # Mobile Router
 app.include_router(AuthRouter, prefix="/api")
