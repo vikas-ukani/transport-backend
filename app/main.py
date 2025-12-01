@@ -1,4 +1,5 @@
 from collections import defaultdict
+from os import getenv
 from fastapi import FastAPI, status
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
@@ -6,7 +7,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse
 from app.config.prisma import connect_db, disconnect_db
 from app.config.settings import settings
-from app.config.log_manager import logger
 
 from app.route.auth_router import router as AuthRouter
 from app.route.user_router import router as UserRouter
@@ -18,17 +18,25 @@ app = FastAPI(debug=settings.DEBUG)
 # Log Middleware.
 # app.add_middleware(LogMiddleware)
 
+
 @app.on_event("startup")
 async def startup():
     await connect_db()
+
 
 @app.on_event("shutdown")
 async def shutdown():
     await disconnect_db()
 
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*", 'http://192.168.0.101:8081','192.168.0.101:8081', 'localhost:8081'],
+    allow_origins=[
+        "*",
+        "http://192.168.0.101:8081",
+        "192.168.0.101:8081",
+        "localhost:8081",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers={"*"},
@@ -52,16 +60,18 @@ async def custom_form_validation_error(request, exc):
     )
 
 
-@app.get("/", )
+@app.get(
+    "/",
+)
 async def index():
-    logger.info({"message": "logging from the root logger"})
     return {"message": f"Welcome to the {settings.APP_NAME} project."}
 
+
 # Mobile Router
-app.include_router(AuthRouter, prefix="/api")
-app.include_router(UserRouter, prefix="/api")
-app.include_router(PostRouter, prefix="/api")
-app.include_router(UploadRouter, prefix="/api")
+app.include_router(AuthRouter, prefix="/api", tags=["Auth"])
+app.include_router(UserRouter, prefix="/api", tags=["User"])
+app.include_router(PostRouter, prefix="/api", tags=["Post"])
+app.include_router(UploadRouter, prefix="/api", tags=["Media"])
 
 # Admin Router
 app.include_router(UserRouter, prefix="/admin")

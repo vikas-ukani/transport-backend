@@ -10,7 +10,8 @@ class Settings(BaseSettings):
     DEBUG: bool = True
     ENVIRONMENT: Literal["local", "staging", "production"] = "local"
 
-    # MONGO_URL: str = "mongodb://localhost:27017/transport"
+    DATABASE_URL: str = "postgres://USER:PASSWORD@db.prisma.io:5432/?sslmode=require"
+    DIRECT_URL: str = "postgres://USER:PASSWORD@db.prisma.io:5432/?sslmode=require"
 
     ACCESS_TOKEN_EXPIRES_IN_MINUTES: int = 15
     REFRESH_TOKEN_EXPIRES_IN: int = 60

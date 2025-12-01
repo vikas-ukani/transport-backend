@@ -1,18 +1,16 @@
 from app.config.settings import settings
 from app.helper.email_helper import emailConfiguration
-from fastapi import APIRouter, status, Depends, Body, BackgroundTasks
+from fastapi import APIRouter, status, Depends, Body
 from app.config.prisma import prisma
 from app.schema.auth_schema import LoginSchema, SignUpSchema
 import random
-from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
+from fastapi_mail import FastMail, MessageSchema
 from app.config.jwt import (
     create_token,
     get_current_user,
     hash_password,
     verify_password,
 )
-from app.schema.user_schema import UserBaseSchema
-from app.config.log_manager import logger
 
 router = APIRouter()
 
@@ -68,7 +66,6 @@ async def register(input: SignUpSchema):
 
         user = await prisma.user.create(data=payload)
 
-        logger.info(user)
         newUser = await prisma.user.find_first(where={"id": user.id})
         if "password" in newUser:
             del newUser["password"]
@@ -80,7 +77,6 @@ async def register(input: SignUpSchema):
             "message": "Your account has been created.",
         }
     except Exception as error:
-        logger.error(f"Error occurred while registering user: {error}")
         return {
             "success": False,
             "message": f"Something is wrong: {error.__str__()}",
@@ -180,21 +176,27 @@ import jwt
 # In-memory set to track used reset tokens (one-time use)
 used_reset_tokens = set()
 
-@router.post('/forgot-password')
+
+@router.post("/forgot-password")
 async def forgot_password(email: str = Body(..., embed=True)):
     user = await prisma.user.find_first(where={"email": email})
     # Don't reveal if email doesn't exist
     if not user:
-        return {"success": True, "message": "If an account with that email exists, you'll receive a password reset link."}
+        return {
+            "success": True,
+            "message": "If an account with that email exists, you'll receive a password reset link.",
+        }
 
     # Generate JWT token for reset (expire in 30 minutes)
     payload = {
         "sub": str(user.id),
         "email": email,
         "exp": datetime.utcnow() + timedelta(minutes=30),
-        "type": "reset"
+        "type": "reset",
     }
-    token = jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
+    token = jwt.encode(
+        payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM
+    )
 
     # Generate reset link (in real use, point to your frontend endpoint)
     reset_link = f"{settings.CLIENT_ORIGIN}/reset-password?token={token}&email={email}"
@@ -251,19 +253,29 @@ async def forgot_password(email: str = Body(..., embed=True)):
         return {"message": f"Failed to send reset email: {e}", "success": False}
 
 
-@router.post('/reset-password')
-async def reset_password(token: str = Body(..., embed=True), new_password: str = Body(..., embed=True)):
+@router.post("/reset-password")
+async def reset_password(
+    token: str = Body(..., embed=True), new_password: str = Body(..., embed=True)
+):
     # Check if token is already used
     if token in used_reset_tokens:
         return {"success": False, "message": "You've already changed your password."}
     try:
-        payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
+        payload = jwt.decode(
+            token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM]
+        )
         if payload.get("type") != "reset":
             return {"success": False, "message": "Invalid reset token."}
     except jwt.ExpiredSignatureError:
-        return {"success": False, "message": "You're link has expired. Please request a new one."}
+        return {
+            "success": False,
+            "message": "You're link has expired. Please request a new one.",
+        }
     except jwt.InvalidTokenError:
-        return {"success": False, "message": "You're link is invalid. Please request a new one."}
+        return {
+            "success": False,
+            "message": "You're link is invalid. Please request a new one.",
+        }
 
     user_id = int(payload["sub"])
     # user_id = payload["email"]

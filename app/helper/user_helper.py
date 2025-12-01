@@ -1,7 +1,5 @@
 from app.config.prisma import prisma
 from app.config.db import serializeDict
-from app.config.log_manager import logger
-
 
 async def get_users() -> list:
     users = []
@@ -23,7 +21,6 @@ async def create_user(user: dict) -> dict:
 
 
 async def get_user_by_email(email: str):
-    logger.info("Fine user by email: " + email)
     user = await prisma.user.find_first({"email": email})
     return serializeDict(user) if user is not None else None
 
