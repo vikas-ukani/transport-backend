@@ -12,7 +12,6 @@ class PostBase(BaseModel):
 class PostCreate(BaseModel):
     title: str = Field(..., example="Sample Post Title", description="The title of the post")
     content: Optional[str] = Field(None, example="This is the content of the post.", description="The main content of the post")
-    published: Optional[bool] = Field(False, example=False, description="Whether the post is published")
     # isActive: Optional[bool] = Field(False, example=False, description="Whether the post is active")
     images: Optional[list[int]] = Field(
         None, example=[1, 2], description="List of media (image) IDs associated with this post"
@@ -23,13 +22,11 @@ class PostCreate(BaseModel):
             "example": {
                 "title": "My First Post",
                 "content": "Hello, this is an example post.",
-                "published": True,
                 # "isActive": True,
                 "images": [1, 2]
             }
         }
     }
-
 
 
 class PostUpdate(BaseModel):
@@ -49,7 +46,7 @@ class PostUpdate(BaseModel):
 
 class PostResponse(PostBase):
     id: int
-    authorId: Optional[int]
+    userId: Optional[int]
     likeCount: int
     publishedAt: Optional[datetime]
     createdAt: datetime

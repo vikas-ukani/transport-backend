@@ -17,14 +17,45 @@ from datetime import datetime
 # --- Post Routes Group ---
 from app.schema.post_schema import PostCreate, PostUpdate, PostResponse
 
+@router.get("/videos", response_description="Get all videos from database.")
+async def get_videos(user: Annotated[User, Depends(get_current_user)]):
+    try:
+        videos = await prisma.video.find_many(order={"id": "desc"})
+        # If you want to cast to dict for response
+        videos = [video.model_dump() for video in videos]
+        return {"data": videos, "success": True}
+    except Exception as e:
+        print(f"Error fetching videos: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "success": False,
+                "message": "An error occurred while fetching videos.",
+                "data": [],
+            },
+        )
+
 
 @router.get("/posts", response_description="Get all posts from database.")
 async def get_posts(user: Annotated[User, Depends(get_current_user)]):
     print("getting posts")
     try:
+        print(f"userId {user.id}")
+        userId = int(user.id)
         posts = await prisma.post.find_many(
-            order={"createdAt": "desc"}, include={"author": True, "images": True}
+            where={"userId": userId, "isActive": True},
+            order={"createdAt": "desc"},
+            include={"user": True, "images": True},
         )
+        posts = [post.model_dump() for post in posts]
+        for post in posts:
+            if post["user"]:
+                user_obj = post["user"]
+                post["user"] = {
+                    "id": user_obj["id"],
+                    "name": user_obj["name"],
+                    "photo": user_obj["photo"],
+                }
         return {"data": posts, "success": True}
     except Exception as e:
         print(f"Error fetching posts: {e}")
@@ -48,48 +79,51 @@ async def create_post(
 ):
     try:
         # To get the user id from the user model (object), use: user.id
-        print(f"User ID: {user.id}")
         post_data = post.dict()
-        post_data["authorId"] = int(user.id)
+        post_data["userId"] = int(user.id)
         # Step 1: Create post without image relations
         image_ids = post_data.pop("images", None)
         created_post = await prisma.post.create(data=post_data)
 
-        print(f"Created Post ID::: {created_post.id}")
+        return {
+            "success": True,
+            "message": "Post created successfully.",
+            "data": created_post,
+        }
+        # pass
         # Step 2: Update Media records to set their postId to the created post's ID, if any image IDs provided.
         if image_ids:
             # Only update images that exist and are not already linked to a post, or just overwrite the link
             await prisma.media.update_many(
                 where={"id": {"in": image_ids}}, data={"postId": created_post.id}
             )
-        # Explicitly fetch the author and image details for the created post and reformat as a full response
+        # Explicitly fetch the user and image details for the created post and reformat as a full response
         post_with_relations = await prisma.post.find_unique(
-            where={"id": created_post.id},
-            include={"author": True, "images": True}
+            where={"id": created_post.id}, include={"user": True, "images": True}
         )
 
-        if post_with_relations and getattr(post_with_relations, "author", None):
-            author = post_with_relations.author
-            author_basic = {
-                "id": getattr(author, "id", None),
-                "name": getattr(author, "name", None),
-                "photo": getattr(author, "photo", None),
+        if post_with_relations and getattr(post_with_relations, "user", None):
+            user = post_with_relations.user
+            user_basic = {
+                "id": getattr(user, "id", None),
+                "name": getattr(user, "name", None),
+                "photo": getattr(user, "photo", None),
             }
             # If post_with_relations is a pydantic model, set attribute
-            setattr(post_with_relations, "author", author_basic)
+            setattr(post_with_relations, "user", user_basic)
         if not post_with_relations:
             raise HTTPException(
                 status_code=404,
-                detail={"success": False, "message": "Post not found.", "data": None}
+                detail={"success": False, "message": "Post not found.", "data": None},
             )
 
         return {
-            "success": True, 
+            "success": True,
             "message": "Post created successfully.",
-            "data": post_with_relations
+            "data": post_with_relations,
         }
     except Exception as e:
-        print(f"Error creating post: {e},") 
+        print(f"Error creating post: {e},")
         raise HTTPException(
             status_code=500, detail="An error occurred while creating the post."
         )
@@ -110,10 +144,10 @@ async def update_post(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Post not found"
         )
-    if db_post.authorId != user.id:
+    if db_post.userId != user.id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to update this post",
+            detail="Not userized to update this post",
         )
     updated_data = post.dict(exclude_unset=True)
     updated_post = await prisma.post.update(where={"id": post_id}, data=updated_data)
@@ -132,7 +166,7 @@ async def delete_post(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Post not found"
         )
-    if db_post.authorId != user.id:
+    if db_post.userId != user.id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not authorized to delete this post",

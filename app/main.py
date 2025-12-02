@@ -1,5 +1,4 @@
 from collections import defaultdict
-from os import getenv
 from fastapi import FastAPI, status
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError

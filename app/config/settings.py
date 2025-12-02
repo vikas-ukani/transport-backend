@@ -21,8 +21,8 @@ class Settings(BaseSettings):
     JWT_PRIVATE_KEY: str = "Transport App private KEY"
     JWT_PUBLIC_KEY: str = "Transport App public key"
 
-    # CLIENT_ORIGIN: str = "*"
-    CLIENT_ORIGIN: str = "http://localhost:8081"
+    CLIENT_ORIGIN: str = "*"
+    # CLIENT_ORIGIN: str = "http://localhost:8081"
 
     # MAIL CONFIGURATION
     SMTP_SERVER: str = "sandbox.smtp.mailtrap.io"

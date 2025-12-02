@@ -1,13 +1,20 @@
-@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiMSIsImV4cCI6MTgyNDYyNzg1OX0.vID0X8RsJG8EhwCzAkGdSeV8YBOwGc52GXTMyCvrNH8
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiMSIsImV4cCI6MTgyNDY5MjExOX0.UshlsV-AnNpMaodRSOBP94g4hct3nmXCz-iJeoOPxqo
 
 
 ### Get Me
 GET http://0.0.0.0:8080/api/user-me
 Authorization: Bearer {{token}}
 
-### Get all posts
-GET http://0.0.0.0:8080/api/posts
+### Get Videos
+GET http://0.0.0.0:8080/api/videos
 Authorization: Bearer {{token}}
+
+
+### Get all post
+GET http://0.0.0.0:8080/api/posts
+Accept: application/json
+Authorization: Bearer {{token}}
+
 
 ### Create a new post
 POST http://0.0.0.0:8080/api/posts
@@ -15,11 +22,11 @@ Accept: application/json
 Authorization: Bearer {{token}}
 
 {
-  "content": "1 Hello, this is an example post.",
+  "title": "Need driver, Please help",
+  "content": "Hello, this is an example post.",
   "images": [
     1,
     2
   ],
-  "published": true,
-  "title": "1 My First Post"
+  "published": true
 }

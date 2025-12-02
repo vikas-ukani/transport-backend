@@ -38,8 +38,8 @@ model Post {
   content     String?
   published   Boolean   @default(false)
   isActive    Boolean   @default(false)
-  author      User?     @relation(fields: [authorId], references: [id])
-  authorId    Int?
+  user        User?     @relation(fields: [userId], references: [id])
+  userId      Int?
   images      Media[]   @relation("PostImages") // Multiple media files (usually images) related to a single post
   likeCount   Int       @default(0)
   publishedAt DateTime?
@@ -50,12 +50,21 @@ model Post {
 model Media {
   id         Int      @id @default(autoincrement())
   url        String
-  type       String   // e.g., "image", "video", "audio", "document"
-  mimeType   String?  // e.g., "image/jpeg", "video/mp4", etc.
-  size       Int?     // Size in bytes
+  type       String // e.g., "image", "video", "audio", "document"
+  mimeType   String? // e.g., "image/jpeg", "video/mp4", etc.
+  size       Int? // Size in bytes
   uploadedAt DateTime @default(now())
 
   // Optional: Media can belong to a Post (as an image)
-  post      Post?     @relation("PostImages", fields: [postId], references: [id])
-  postId    Int?
+  post   Post? @relation("PostImages", fields: [postId], references: [id])
+  postId Int?
+}
+
+model Video {
+  id        Int      @id @default(autoincrement())
+  title     String
+  thumbnail String // URL of the video thumbnail image
+  url       String // Full URL of the YouTube video
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
 }
