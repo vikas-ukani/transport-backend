@@ -25,7 +25,7 @@ model User {
 }
 
 model Post {
-  id String @id @default(auto()) @map("_id") @db.ObjectId
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
   title       String
   content     String?
   published   Boolean   @default(false)
@@ -58,7 +58,9 @@ model Video {
 }
 
 model Vehicle {
-  id           Int      @id @map("_id")
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  driverName   String?
+  mobileNumber String?
   rcNumber     String   @unique // Registration number, e.g., 'MH12AB1234'
   rcPhoto      String? // Photo URL of RC Book
   truckType    String // e.g., 'Flatbed', can be further normalized
@@ -66,26 +68,20 @@ model Vehicle {
   truckLength  String? // e.g., '20 ft'
   truckHeight  String? // e.g., '8 ft'
   loadCapacity String? // e.g., '10 tons'
-  traveledInKM String? // e.g., '125,000 Km'
+  traveledInKM String?  @default("0.0") // e.g., '125,000 Km'
   rating       Float?   @default(0.0) // e.g., 4.7
   status       String   @default("pending") // e.g., 'verified', 'pending', 'inactive'
-  ownerId      Int?
+  imageIds     String[]
+  ownerId      String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
-
+  referralCode String?
   // Additional commonly used fields
-  isActive    Boolean @default(true)
-  description String? // Optional description/details
+  isActive     Boolean  @default(true)
+  description  String? // Optional description/details
 
   // Add relation from Vehicle to Driver
-  driver   Driver? @relation
   driverId Int?
-
-  // Add to Vehicle relation for access to its location history
-  locations VehicleLocation[]
-
-  // Explicit relation name added to resolve ambiguity with Booking model
-  bookings Booking[] @relation("BookingTruck")
 }
 
 model Driver {
@@ -98,8 +94,7 @@ model Driver {
   location      String? // Current location or address as text (optional; use more advanced type if Geo support added)
 
   // One-to-one relationship: Each driver can drive only one vehicle
-  vehicle   Vehicle? @relation(fields: [vehicleId], references: [id])
-  vehicleId Int?     @unique
+  vehicleId Int? @unique
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -112,7 +107,6 @@ model Driver {
 // Define a VehicleLocation model to track the route/history of a vehicle's locations over time.
 model VehicleLocation {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  vehicle   Vehicle  @relation(fields: [vehicleId], references: [id])
   vehicleId Int
   latitude  Float // Latitude of vehicle's position
   longitude Float // Longitude of vehicle's position
@@ -131,7 +125,6 @@ model Booking {
   customerId String
 
   // Assigned Logistics (may be null at creation)
-  vehicle   Vehicle? @relation("BookingTruck", fields: [vehicleId], references: [id])
   vehicleId Int?
 
   driver   Driver? @relation(fields: [driverId], references: [id])

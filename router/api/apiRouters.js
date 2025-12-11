@@ -16,15 +16,17 @@ import {
   getAllVideos,
   getPost,
   getPosts,
-  updatePost
+  updatePost,
 } from '../../controllers/postController.js';
 import { createUser, getUsers } from '../../controllers/userController.js';
+import { registerVehicle } from '../../controllers/vehicleController.js';
 import { validateRequest } from '../../lib/validateRequest.js';
 import { apiMiddleware } from '../../middlewares/authMiddleware.js';
 import {
   createPostSchema,
   loginSchema,
   registerSchema,
+  RegisterVehicleSchema,
 } from '../../schema/apiSchema.js';
 
 const authRouters = Router();
@@ -58,6 +60,12 @@ apiRouters
   .put(validateRequest(createPostSchema), updatePost)
   .delete(deletePost);
 //   .post(validateRequest(createPostSchema), createPost);
+
+apiRouters.post(
+  '/register-vehicle',
+  validateRequest(RegisterVehicleSchema),
+  registerVehicle
+);
 
 apiRouters.route('/users', apiMiddleware).get(getUsers).post(createUser);
 // authRouters

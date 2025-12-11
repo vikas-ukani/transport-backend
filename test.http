@@ -66,5 +66,22 @@ DELETE http://0.0.0.0:8080/api/posts/6936e21420b56aa488f31ee2
 Content-Type: application/json
 Authorization: Bearer {{token}}
 
+### Reguster New Vehicle
+POST  http://0.0.0.0:8080/api/register-vehicle
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "driverName": "Vikas",
+  "mobileNumber": "9909659030",
+  "rcNumber": "8d8dits",
+  "truckType": "pickup",
+  "bodyType": "open",
+  "truckLength": "7",
+  "loadCapacity": "10",
+  "truckHeight": "10",
+  "rcPhoto": "693ac47f1085c7c995bfe272",
+  "imageIds": [ "693ac4811085c7c995bfe274", "693ac4811085c7c995bfe273" ]
+}
 
 # NEW ROUTEs

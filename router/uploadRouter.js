@@ -3,9 +3,7 @@ import fs from 'fs';
 import multer from 'multer';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
-import prismaExported from '../lib/prisma.js';
-
-const { prisma } = prismaExported;
+import prisma from '../lib/prisma.js';
 
 const UPLOAD_DIRECTORY = 'uploads';
 
@@ -60,6 +58,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
       message: 'File uploaded successfully!',
     });
   } catch (e) {
+    console.log('e.message', e.message)
     // Clean up file if DB operation fails
     fs.unlinkSync(path.join(UPLOAD_DIRECTORY, file.filename));
     return res.status(500).json({

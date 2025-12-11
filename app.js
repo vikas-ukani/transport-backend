@@ -27,7 +27,7 @@ app.use('/api/', apiRouters);
 
 // Assuming you have an upload router in ./router/api/uploadRouter.js
 import uploadRouter from './router/uploadRouter.js';
-app.use('/uploads', uploadRouter);
+app.use('/', uploadRouter);
 // Serve static files from the 'uploads' directory at the root path
 app.use('/', express.static('uploads'));
 

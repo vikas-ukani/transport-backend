@@ -22,9 +22,7 @@ export const signin = async (req, res) => {
           message: 'Incorrect email or password.',
         });
       }
-      console.log('user.id', user.id)
       const token = createToken(String(user.id));
-      console.log('token', token)
       const userObj = { ...user };
       delete userObj.password;
       return res.json({ success: true, token, user: userObj });
