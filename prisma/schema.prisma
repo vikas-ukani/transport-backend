@@ -1,23 +1,15 @@
 generator client {
-  provider             = "prisma-client-py"
-  recursive_type_depth = "5"
+  provider = "prisma-client-js"
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider = "mongodb"
+  url      = env("DBLINK")
 }
 
-// datasource db {
-//   provider = "postgresql"
-//   url      = env("DATABASE_URL")
-//   // provider = "sqlite"
-//   // url      = "file:./dev.db"
-// }
-
 model User {
-  id              Int      @id @default(autoincrement())
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+
   name            String
   email           String   @unique
   mobile          String   @unique
@@ -33,14 +25,14 @@ model User {
 }
 
 model Post {
-  id          Int       @id @default(autoincrement())
+  id String @id @default(auto()) @map("_id") @db.ObjectId
   title       String
   content     String?
   published   Boolean   @default(false)
   isActive    Boolean   @default(false)
   user        User?     @relation(fields: [userId], references: [id])
-  userId      Int?
-  images      Media[]   @relation("PostImages") // Multiple media files (usually images) related to a single post
+  userId      String?
+  imageIds    String[]
   likeCount   Int       @default(0)
   publishedAt DateTime?
   createdAt   DateTime  @default(now())
@@ -48,23 +40,135 @@ model Post {
 }
 
 model Media {
-  id         Int      @id @default(autoincrement())
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
   url        String
-  type       String // e.g., "image", "video", "audio", "document"
-  mimeType   String? // e.g., "image/jpeg", "video/mp4", etc.
+  type       String   @default("image") // e.g., "image", "video", "audio", "document"
+  mimeType   String?  @default("image/jpeg") // e.g., "image/jpeg", "video/mp4", etc.
   size       Int? // Size in bytes
   uploadedAt DateTime @default(now())
-
-  // Optional: Media can belong to a Post (as an image)
-  post   Post? @relation("PostImages", fields: [postId], references: [id])
-  postId Int?
 }
 
 model Video {
-  id        Int      @id @default(autoincrement())
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
   title     String
   thumbnail String // URL of the video thumbnail image
   url       String // Full URL of the YouTube video
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now())
+}
+
+model Vehicle {
+  id           Int      @id @map("_id")
+  rcNumber     String   @unique // Registration number, e.g., 'MH12AB1234'
+  rcPhoto      String? // Photo URL of RC Book
+  truckType    String // e.g., 'Flatbed', can be further normalized
+  bodyType     String? // e.g., 'Open Body'
+  truckLength  String? // e.g., '20 ft'
+  truckHeight  String? // e.g., '8 ft'
+  loadCapacity String? // e.g., '10 tons'
+  traveledInKM String? // e.g., '125,000 Km'
+  rating       Float?   @default(0.0) // e.g., 4.7
+  status       String   @default("pending") // e.g., 'verified', 'pending', 'inactive'
+  ownerId      Int?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Additional commonly used fields
+  isActive    Boolean @default(true)
+  description String? // Optional description/details
+
+  // Add relation from Vehicle to Driver
+  driver   Driver? @relation
+  driverId Int?
+
+  // Add to Vehicle relation for access to its location history
+  locations VehicleLocation[]
+
+  // Explicit relation name added to resolve ambiguity with Booking model
+  bookings Booking[] @relation("BookingTruck")
+}
+
+model Driver {
+  id            Int     @id @map("_id")
+  driverId      String  @unique // Unique identifier for the driver (could be employee or internal code)
+  name          String
+  contact       String // Contact information (e.g., mobile number)
+  licenseNumber String // Driving license number
+  licenseImage  String? // URL/Path to image of driving license
+  location      String? // Current location or address as text (optional; use more advanced type if Geo support added)
+
+  // One-to-one relationship: Each driver can drive only one vehicle
+  vehicle   Vehicle? @relation(fields: [vehicleId], references: [id])
+  vehicleId Int?     @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relation: Driver belongs to a User (i.e., the owner/creator of the driver)
+  userId   String
+  bookings Booking[]
+}
+
+// Define a VehicleLocation model to track the route/history of a vehicle's locations over time.
+model VehicleLocation {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  vehicle   Vehicle  @relation(fields: [vehicleId], references: [id])
+  vehicleId Int
+  latitude  Float // Latitude of vehicle's position
+  longitude Float // Longitude of vehicle's position
+  timestamp DateTime @default(now()) // When the vehicle was at the location
+  address   String? // Optional: Human-readable address
+  createdAt DateTime @default(now())
+}
+
+// Represents the customer (assumes a Customer model exists or is a type of User) 
+model Booking {
+  bookingId   Int      @id @map("_id")
+  bookingDate DateTime @default(now())
+  status      String
+
+  // Customer details
+  customerId String
+
+  // Assigned Logistics (may be null at creation)
+  vehicle   Vehicle? @relation("BookingTruck", fields: [vehicleId], references: [id])
+  vehicleId Int?
+
+  driver   Driver? @relation(fields: [driverId], references: [id])
+  driverId Int?
+
+  // Shipment details
+  originAddress      String
+  destinationAddress String
+  scheduledPickup    DateTime
+  scheduledDelivery  DateTime?
+
+  cargoDescription String?
+  weightKg         Float?
+
+  // Pricing & Payment
+  quotedPrice   Float
+  paymentStatus String @default("Unpaid") // e.g., "Paid", "Pending", "Failed"
+
+  // Optional: formal shipment record once operations begin
+  shipmentRecord Shipment? @relation("BookingToShipment")
+  // Use a relation name to clarify, remove fields/references from this side
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Tracks actual execution of the shipment
+model Shipment {
+  id                 String    @id @default(auto()) @map("_id") @db.ObjectId
+  bookingRefId       Int       @unique
+  shipmentStatus     String    @default("In Transit")
+  actualPickupTime   DateTime?
+  actualDeliveryTime DateTime?
+
+  booking Booking @relation("BookingToShipment", fields: [bookingRefId], references: [bookingId])
+  // Only this side needs @relation fields/references
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

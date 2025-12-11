@@ -1,9 +1,7 @@
-# local env files
-.env*.local
-
-venv
-env
+node_modules
 .env
-.vscode/PythonImportHelper-v2-Completion.json
-app/__pycache__/*
-app/*/__pycache__/*
+/generated/prisma
+test.http
+.vscode/settings.json
+prisma/dev.db
+.DS_Store

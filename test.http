@@ -1,32 +1,70 @@
-@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiMSIsImV4cCI6MTgyNDY5MjExOX0.UshlsV-AnNpMaodRSOBP94g4hct3nmXCz-iJeoOPxqo
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OTM2ZTEwMmNkYjE3YjVmYjY5MWIzOTgiLCJpYXQiOjE3NjUyMDQ0NTksImV4cCI6MTgyNTIwNDQ1OX0.BjlbV79nm9pdhtsasNRbbNp-CjmJ9PQ66HM0NZYCAq0
 
+### Login
+POST http://0.0.0.0:8080/api/signin
+Content-Type: application/json
 
-### Get Me
-GET http://0.0.0.0:8080/api/user-me
-Authorization: Bearer {{token}}
+{
+  "email": "vikas@gmail.com",
+  "password": "password"
+}
+
+### Register
+POST http://0.0.0.0:8080/api/register
+Content-Type: application/json
+
+{
+  "name": "Vikas",
+  "email": "vikas@gmail.com",
+  "password": "password",
+  "confirm_password": "password",
+   "mobile": "password"
+}
 
 ### Get Videos
 GET http://0.0.0.0:8080/api/videos
 Authorization: Bearer {{token}}
 
-
-### Get all post
+### Get POSTS
 GET http://0.0.0.0:8080/api/posts
-Accept: application/json
 Authorization: Bearer {{token}}
 
 
-### Create a new post
+### PostsCreate
 POST http://0.0.0.0:8080/api/posts
-Accept: application/json
+Content-Type: application/json
 Authorization: Bearer {{token}}
 
 {
-  "title": "Need driver, Please help",
-  "content": "Hello, this is an example post.",
-  "images": [
-    1,
-    2
-  ],
-  "published": true
+  "title": "Fresh Post",
+  "content": "some content here",
+  "imageIds": ["somaaskdjhfhasdf"]
 }
+
+
+### GET POST BY ID
+
+GET http://0.0.0.0:8080/api/posts/6936e21420b56aa488f31ee2
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+### UPDATE POSTS
+
+PUT http://0.0.0.0:8080/api/posts/6936e21420b56aa488f31ee2
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "title": "New Updated Post",
+  "content": "some content here",
+  "imageIds": [1]
+}
+
+
+### DELETE POST
+DELETE http://0.0.0.0:8080/api/posts/6936e21420b56aa488f31ee2
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+
+# NEW ROUTEs
