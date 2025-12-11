@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "nodemon server.js",
     "start": "node server.js",
+    "deploy": "npm install && npx prisma generate && npm run dev",
     "test": "jest"
   },
   "dependencies": {
