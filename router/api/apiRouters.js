@@ -19,7 +19,13 @@ import {
   updatePost,
 } from '../../controllers/postController.js';
 import { createUser, getUsers } from '../../controllers/userController.js';
-import { registerVehicle } from '../../controllers/vehicleController.js';
+import {
+  deleteVehicle,
+  getVehicleById,
+  getVehicles,
+  registerVehicle,
+  updateVehicle,
+} from '../../controllers/vehicleController.js';
 import { validateRequest } from '../../lib/validateRequest.js';
 import { apiMiddleware } from '../../middlewares/authMiddleware.js';
 import {
@@ -27,6 +33,7 @@ import {
   loginSchema,
   registerSchema,
   RegisterVehicleSchema,
+  UpdateVehicleSchema,
 } from '../../schema/apiSchema.js';
 
 const authRouters = Router();
@@ -61,11 +68,16 @@ apiRouters
   .delete(deletePost);
 //   .post(validateRequest(createPostSchema), createPost);
 
-apiRouters.post(
-  '/register-vehicle',
-  validateRequest(RegisterVehicleSchema),
-  registerVehicle
-);
+// vehicles routes
+apiRouters
+  .route('/vehicles')
+  .get(getVehicles)
+  .post(validateRequest(RegisterVehicleSchema), registerVehicle);
+apiRouters
+  .route('/vehicle/:id')
+  .get(getVehicleById)
+  .put(validateRequest(UpdateVehicleSchema), updateVehicle)
+  .delete(deleteVehicle);
 
 apiRouters.route('/users', apiMiddleware).get(getUsers).post(createUser);
 // authRouters

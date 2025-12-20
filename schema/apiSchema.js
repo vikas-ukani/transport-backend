@@ -95,3 +95,37 @@ export const RegisterVehicleSchema = Joi.object({
   }),
   referralCode: Joi.string(),
 });
+
+export const UpdateVehicleSchema = Joi.object({
+  driverName: Joi.string().required().messages({
+    'any.required': 'Driver name is required.',
+  }),
+  mobileNumber: Joi.string().required().messages({
+    'any.required': 'Driver mobile number is required.',
+  }),
+  rcNumber: Joi.string().required().messages({
+    'any.required': 'RC Book is required.',
+  }),
+  rcPhoto: Joi.allow(null).messages({
+    'any.required': 'RC photo is required.',
+  }),
+  truckType: Joi.string().required().messages({
+    'any.required': 'Truck Type is required.',
+  }),
+  bodyType: Joi.string().required().messages({
+    'any.required': 'Truck Body is required.',
+  }),
+  truckLength: Joi.string().required().messages({
+    'any.required': 'Truck Length is required.',
+  }),
+  truckHeight: Joi.string().required().messages({
+    'any.required': 'Truck Hight is required.',
+  }),
+  loadCapacity: Joi.string().required().messages({
+    'any.required': 'Truck capacity is required.',
+  }),
+  imageIds: Joi.array().items(Joi.allow(null)).messages({
+    'any.required': 'Please upload and images.',
+  }),
+  referralCode: Joi.optional(),
+});

@@ -6,3 +6,6 @@ test.http
 .vscode/settings.json
 prisma/dev.db
 .DS_Store
+/test.http
+./*.http
+.DS_Store
