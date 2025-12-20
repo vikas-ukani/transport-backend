@@ -13,12 +13,14 @@ import {
 import {
   createPost,
   deletePost,
+  getAllPosts,
   getAllVideos,
+  getMyPosts,
   getPost,
-  getPosts,
-  updatePost,
+  likePost,
+  updatePost
 } from '../../controllers/postController.js';
-import { createUser, getUsers } from '../../controllers/userController.js';
+import { createUser, getUsers, partialUpdate } from '../../controllers/userController.js';
 import {
   deleteVehicle,
   getVehicleById,
@@ -59,13 +61,15 @@ apiRouters.use(apiMiddleware);
 apiRouters.route('/videos').get(getAllVideos);
 apiRouters
   .route('/posts')
-  .get(getPosts)
+  .get(getAllPosts)
   .post(validateRequest(createPostSchema), createPost);
+apiRouters.get('/my-posts', getMyPosts);
 apiRouters
   .route('/posts/:id', apiMiddleware)
   .get(getPost)
   .put(validateRequest(createPostSchema), updatePost)
   .delete(deletePost);
+apiRouters.get('/like-post/:id', likePost);
 //   .post(validateRequest(createPostSchema), createPost);
 
 // vehicles routes
@@ -80,6 +84,7 @@ apiRouters
   .delete(deleteVehicle);
 
 apiRouters.route('/users', apiMiddleware).get(getUsers).post(createUser);
+apiRouters.put('/users/partial-update/:id', partialUpdate);
 // authRouters
 //   .route('/users/:id')
 //   .get(getUserById)

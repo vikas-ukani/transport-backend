@@ -37,19 +37,15 @@ export const getAllVideos = async (req, res, next) => {
   }
 };
 
-export const getPosts = async (req, res, next) => {
+export const getAllPosts = async (req, res, next) => {
   try {
     // Pagination parameters
     const page = parseInt(req.query.page, 10) || 1;
     const limit = parseInt(req.query.limit, 10) || 10;
     const skip = (page - 1) * limit;
 
-    // User ID validation (from auth, assuming middleware sets req.userId)
-    const userId = req.userId;
-
     // Build the query with userId and isActive = true
     const where = {
-      userId: userId,
       isActive: true,
     };
 
@@ -97,14 +93,129 @@ export const getPosts = async (req, res, next) => {
   }
 };
 
+export const getMyPosts = async (req, res, next) => {
+  try {
+    // Pagination parameters
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 10;
+    const skip = (page - 1) * limit;
+
+    const userId = req.userId;
+    // Build the query with userId and isActive = true
+    const where = {
+      userId,
+      isActive: true,
+    };
+
+    // Fetch total count for pagination info
+    const totalPosts = await prisma.post.count({
+      where,
+    });
+
+    // Fetch posts with pagination
+    const posts = await prisma.post.findMany({
+      where,
+      skip,
+      take: limit,
+      orderBy: { createdAt: 'desc' },
+    });
+    const newPosts = await Promise.all(
+      posts.map(async (post) => {
+        const images = await prisma.media.findMany({
+          where: {
+            id: { in: post.imageIds },
+          },
+        });
+        post.images = images.length ? images : [];
+        return post;
+      })
+    );
+
+    res.status(200).json({
+      success: true,
+      message: 'Posts fetched successfully.',
+      data: newPosts,
+      pagination: {
+        total: totalPosts,
+        page,
+        limit,
+        totalPages: Math.ceil(totalPosts / limit),
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching posts:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+export const likePost = async (req, res, next) => {
+  try {
+    const postId = req.params.id;
+    const userId = req.userId;
+
+    // Find the post to like
+    const post = await prisma.post.findUnique({
+      where: { id: postId },
+    });
+
+    if (!post) {
+      return res.status(404).json({
+        success: false,
+        message: 'Post not found.',
+      });
+    }
+
+    // Update likes array
+    let updatedLikes = post.likes || [];
+    if (updatedLikes.includes(userId)) {
+      // If already liked, remove the like (unlike)
+      updatedLikes = updatedLikes.filter((id) => id !== userId);
+    } else {
+      // Add like
+      updatedLikes.push(userId);
+    }
+
+    console.log('updatedLikes', updatedLikes)
+    const updatedPost = await prisma.post.update({
+      where: { id: postId },
+      data: { likes: updatedLikes },
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Post like status updated successfully.',
+      data: updatedPost,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const getPost = async (req, res, next) => {
   try {
     const postId = req.params.id;
-    // console.log('req.params', req)
-    const userId = req.userId;
     const post = await prisma.post.findUnique({
-      where: { id: postId, userId, isActive: true },
+      where: { id: postId },
     });
+
+    // Fetch images from media table for the imageIds of this post
+    let images = [];
+    if (
+      post &&
+      post.imageIds &&
+      Array.isArray(post.imageIds) &&
+      post.imageIds.length
+    ) {
+      images = await prisma.media.findMany({
+        where: {
+          id: { in: post.imageIds },
+        },
+      });
+    }
+    post.images = images;
 
     if (!post) {
       return res.status(404).json({
@@ -194,14 +305,7 @@ export const updatePost = async (req, res, next) => {
 export const deletePost = async (req, res, next) => {
   try {
     const id = req.params.id;
-    if (isNaN(id)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid post ID.',
-      });
-    }
-
-    const userId = parseInt(req.userId, 10);
+    const userId = req.userId;
 
     // Check if the post exists and belongs to the user and is active
     const existingPost = await prisma.post.findUnique({

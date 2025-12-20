@@ -8,8 +8,7 @@ datasource db {
 }
 
 model User {
-  id String @id @default(auto()) @map("_id") @db.ObjectId
-
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
   name            String
   email           String   @unique
   mobile          String   @unique
@@ -21,7 +20,6 @@ model User {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   isVerified      Boolean  @default(false)
-  posts           Post[]
 }
 
 model Post {
@@ -30,10 +28,9 @@ model Post {
   content     String?
   published   Boolean   @default(false)
   isActive    Boolean   @default(false)
-  user        User?     @relation(fields: [userId], references: [id])
   userId      String?
   imageIds    String[]
-  likeCount   Int       @default(0)
+  likes       String[]
   publishedAt DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
@@ -131,16 +128,16 @@ model Booking {
   driverId Int?
 
   // Shipment details
-  originAddress      String
-  destinationAddress String
+  fromAddress      String
+  toAddress String
   scheduledPickup    DateTime
   scheduledDelivery  DateTime?
 
-  cargoDescription String?
+  description String?
   weightKg         Float?
 
   // Pricing & Payment
-  quotedPrice   Float
+  estimatedPrice   Float
   paymentStatus String @default("Unpaid") // e.g., "Paid", "Pending", "Failed"
 
   // Optional: formal shipment record once operations begin
