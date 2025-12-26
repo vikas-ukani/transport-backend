@@ -93,7 +93,7 @@ export const RegisterVehicleSchema = Joi.object({
   imageIds: Joi.array().min(1).items(Joi.string()).required().messages({
     'any.required': 'Please upload and images.',
   }),
-  referralCode: Joi.string(),
+  referralCode: Joi.optional(),
 });
 
 export const UpdateVehicleSchema = Joi.object({
@@ -128,4 +128,53 @@ export const UpdateVehicleSchema = Joi.object({
     'any.required': 'Please upload and images.',
   }),
   referralCode: Joi.optional(),
+});
+
+export const CreateBookingSchema = Joi.object({
+  fromAddress: Joi.string().required().messages({
+    'any.required': 'Pickup address is required.',
+    'string.empty': 'Pickup address cannot be empty.',
+  }),
+
+  fromLatitude: Joi.number().required().messages({
+    'any.required': 'Pickup latitude is required.',
+  }),
+  fromLongitude: Joi.number().required().messages({
+    'any.required': 'Pickup longitude is required.',
+  }),
+  toAddress: Joi.string().required().messages({
+    'any.required': 'Drop address is required.',
+    'string.empty': 'Drop address cannot be empty.',
+  }),
+  toLatitude: Joi.number().required().messages({
+    'any.required': 'Drop latitude is required.',
+  }),
+  toLongitude: Joi.number().required().messages({
+    'any.required': 'Drop longitude is required.',
+  }),
+  bookingDate: Joi.date().required().messages({
+    'any.required': 'Booking date is required.',
+    'date.base': 'Booking date must be a valid date.',
+  }),
+  truckType: Joi.string().required().messages({
+    'any.required': 'Truck type is required.',
+  }),
+  bodyType: Joi.string().required().messages({
+    'any.required': 'Body type is required.',
+  }),
+  truckLength: Joi.string().required().messages({
+    'any.required': 'Truck length is required.',
+  }),
+  loadCapacity: Joi.string().required().messages({
+    'any.required': 'Load capacity is required.',
+  }),
+  truckHeight: Joi.string().required().messages({
+    'any.required': 'Truck height is required.',
+  }),
+  estimatedKm: Joi.string().optional().messages({
+    'any.required': 'Estimated kilometers is required.',
+  }),
+  driverNotes: Joi.string().required().messages({
+    'any.required': 'Driver notes are required.',
+  }),
 });

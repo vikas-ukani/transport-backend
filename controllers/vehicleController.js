@@ -1,3 +1,4 @@
+import { removeImagesFromMedia } from '../helper/mediaHelper.js';
 import prisma from '../lib/prisma.js';
 
 export const getVehicles = async (req, res) => {
@@ -181,6 +182,23 @@ export const updateVehicle = async (req, res) => {
         imageIds: imageIds.length === 0 ? existingVehicle.imageIds : imageIds,
       },
     });
+
+    // After update, remove any previous images from the server that are no longer referenced
+    if (Array.isArray(imageIds)) {
+      // Get the list of images before update
+      const previousImageIds = Array.isArray(existingVehicle.imageIds)
+        ? existingVehicle.imageIds
+        : [];
+
+      // Only compare if a new set of imageIds has been provided (not just empty)
+      // If imageIds is an empty array, it means no changes, so skip deletion
+      if (imageIds.length > 0) {
+        const removedImageIds = previousImageIds.filter(
+          (id) => !imageIds.includes(id)
+        );
+        removeImagesFromMedia(removedImageIds);
+      }
+    }
 
     if (updatedVehicle.count === 0) {
       return res.status(404).json({

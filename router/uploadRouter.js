@@ -7,16 +7,15 @@ import prisma from '../lib/prisma.js';
 
 const UPLOAD_DIRECTORY = 'uploads';
 
-// Ensure the uploads directory exists
-if (!fs.existsSync(UPLOAD_DIRECTORY)) {
-  fs.mkdirSync(UPLOAD_DIRECTORY, { recursive: true });
-}
-
 const router = express.Router();
 
 // Set up multer storage
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
+    // Ensure the upload directory exists at runtime
+    if (!fs.existsSync(UPLOAD_DIRECTORY)) {
+      fs.mkdirSync(UPLOAD_DIRECTORY, { recursive: true });
+    }
     cb(null, UPLOAD_DIRECTORY);
   },
   filename: function (req, file, cb) {
@@ -58,7 +57,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
       message: 'File uploaded successfully!',
     });
   } catch (e) {
-    console.log('e.message', e.message)
+    console.log('e.message', e.message);
     // Clean up file if DB operation fails
     fs.unlinkSync(path.join(UPLOAD_DIRECTORY, file.filename));
     return res.status(500).json({

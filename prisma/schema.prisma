@@ -20,6 +20,8 @@ model User {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   isVerified      Boolean  @default(false)
+
+  notifications Notification[]
 }
 
 model Post {
@@ -77,6 +79,8 @@ model Vehicle {
   isActive     Boolean  @default(true)
   description  String? // Optional description/details
 
+  vehicle Shipment[]
+
   // Add relation from Vehicle to Driver
   driverId Int?
 }
@@ -99,6 +103,8 @@ model Driver {
   // Relation: Driver belongs to a User (i.e., the owner/creator of the driver)
   userId   String
   bookings Booking[]
+
+  driverBookingRequests DriverBookingRequest[]
 }
 
 // Define a VehicleLocation model to track the route/history of a vehicle's locations over time.
@@ -114,51 +120,90 @@ model VehicleLocation {
 
 // Represents the customer (assumes a Customer model exists or is a type of User) 
 model Booking {
-  bookingId   Int      @id @map("_id")
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
   bookingDate DateTime @default(now())
   status      String
+  driverNotes String?
 
   // Customer details
   customerId String
-
-  // Assigned Logistics (may be null at creation)
-  vehicleId Int?
 
   driver   Driver? @relation(fields: [driverId], references: [id])
   driverId Int?
 
   // Shipment details
-  fromAddress      String
-  toAddress String
-  scheduledPickup    DateTime
-  scheduledDelivery  DateTime?
+  fromAddress   String
+  fromLatitude  Float?
+  fromLongitude Float?
 
-  description String?
-  weightKg         Float?
+  toAddress   String
+  toLatitude  Float?
+  toLongitude Float?
+
+  truckType    String
+  bodyType     String
+  truckLength  String?
+  truckHeight  String?
+  loadCapacity String?
 
   // Pricing & Payment
-  estimatedPrice   Float
-  paymentStatus String @default("Unpaid") // e.g., "Paid", "Pending", "Failed"
+  estimatedKm    String? // Estimated distance in kilometers for the booking
+  paymentStatus  String  @default("Unpaid") // e.g., "Paid", "Pending", "Failed"
 
-  // Optional: formal shipment record once operations begin
-  shipmentRecord Shipment? @relation("BookingToShipment")
-  // Use a relation name to clarify, remove fields/references from this side
+  shipment Shipment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  driverBookingRequests DriverBookingRequest[]
 }
 
 // Tracks actual execution of the shipment
 model Shipment {
   id                 String    @id @default(auto()) @map("_id") @db.ObjectId
-  bookingRefId       Int       @unique
   shipmentStatus     String    @default("In Transit")
   actualPickupTime   DateTime?
   actualDeliveryTime DateTime?
 
-  booking Booking @relation("BookingToShipment", fields: [bookingRefId], references: [bookingId])
-  // Only this side needs @relation fields/references
+  booking   Booking  @relation(fields: [bookingId], references: [id])
+  bookingId String   @db.ObjectId
 
+  vehicle   Vehicle  @relation(fields: [vehicleId], references: [id])
+  vehicleId String   @db.ObjectId
+  
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model DriverBookingRequest {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+
+  booking    Booking  @relation(fields: [bookingId], references: [id])
+  bookingId  String   @db.ObjectId
+
+  driver     Driver   @relation(fields: [driverId], references: [id])
+  driverId   Int
+
+  status     String   @default("requested") // e.g., "requested", "accepted", "rejected", etc.
+  fareOffer  Float?   // The fare price proposed by the driver
+
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+ 
+
+
+
+
+model Notification {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  user        User     @relation(fields: [userId], references: [id])
+  userId      String   @db.ObjectId
+  type        String    @default("general") // e.g., 'general', 'booking', 'promotion', etc.
+  title       String
+  message     String
+  payload     Json?
+  isRead      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }

@@ -11,6 +11,15 @@ import {
   verifyMobileOTP,
 } from '../../controllers/authController.js';
 import {
+  createBooking,
+  getMyBookings,
+} from '../../controllers/bookingController.js';
+import {
+  getNotificationsByUserId,
+  markAllNotificationsAsRead,
+  markNotificationAsRead,
+} from '../../controllers/notificationController.js';
+import {
   createPost,
   deletePost,
   getAllPosts,
@@ -18,9 +27,13 @@ import {
   getMyPosts,
   getPost,
   likePost,
-  updatePost
+  updatePost,
 } from '../../controllers/postController.js';
-import { createUser, getUsers, partialUpdate } from '../../controllers/userController.js';
+import {
+  createUser,
+  getUsers,
+  partialUpdate,
+} from '../../controllers/userController.js';
 import {
   deleteVehicle,
   getVehicleById,
@@ -31,6 +44,7 @@ import {
 import { validateRequest } from '../../lib/validateRequest.js';
 import { apiMiddleware } from '../../middlewares/authMiddleware.js';
 import {
+  CreateBookingSchema,
   createPostSchema,
   loginSchema,
   registerSchema,
@@ -90,6 +104,16 @@ apiRouters.put('/users/partial-update/:id', partialUpdate);
 //   .get(getUserById)
 //   .put(updateUser)
 //   .delete(deleteUser);
+
+apiRouters
+  .route('/bookings')
+  .get(getMyBookings)
+  .post(validateRequest(CreateBookingSchema), createBooking);
+
+// Notifications routes
+apiRouters.get('/notifications', getNotificationsByUserId);
+apiRouters.patch('/notifications/:id/read', markNotificationAsRead);
+apiRouters.patch('/notifications/read-all', markAllNotificationsAsRead);
 
 authRouters.use('/', apiRouters);
 export default authRouters;
