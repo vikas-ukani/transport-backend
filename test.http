@@ -1,4 +1,3 @@
-@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OTM2ZTEwMmNkYjE3YjVmYjY5MWIzOTgiLCJpYXQiOjE3NjUyMDQ0NTksImV4cCI6MTgyNTIwNDQ1OX0.BjlbV79nm9pdhtsasNRbbNp-CjmJ9PQ66HM0NZYCAq0
 
 ### Login
 POST http://0.0.0.0:8080/api/signin
@@ -10,15 +9,15 @@ Content-Type: application/json
 }
 
 ### Register
-POST http://0.0.0.0:8080/api/register
+POST http://0.0.0.0:8080/api/auth/register
 Content-Type: application/json
 
 {
   "name": "Vikas",
-  "email": "vikas@gmail.com",
+  "email": "driver-1te4st@gmail.com",
   "password": "password",
   "confirm_password": "password",
-   "mobile": "password"
+  "mobile": "9981948899"
 }
 
 ### Get Videos
@@ -66,8 +65,22 @@ DELETE http://0.0.0.0:8080/api/posts/6936e21420b56aa488f31ee2
 Content-Type: application/json
 Authorization: Bearer {{token}}
 
+
+### GET VEHICLES
+
+GET http://0.0.0.0:8080/api/vehicles
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+### GET VEHICLES BY ID
+
+GET http://0.0.0.0:8080/api/vehicle/693ac71e462803ad37b94866
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+
 ### Reguster New Vehicle
-POST  http://0.0.0.0:8080/api/register-vehicle
+POST  http://0.0.0.0:8080/api/vehicles
 Content-Type: application/json
 Authorization: Bearer {{token}}
 
@@ -84,4 +97,53 @@ Authorization: Bearer {{token}}
   "imageIds": [ "693ac4811085c7c995bfe274", "693ac4811085c7c995bfe273" ]
 }
 
-# NEW ROUTEs
+
+### UPDATE Vehicle
+POST  http://0.0.0.0:8080/api/vehicle/
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "driverName": "Vikas",
+  "mobileNumber": "9909659030",
+  "rcNumber": "8d8dits",
+  "truckType": "pickup",
+  "bodyType": "open",
+  "truckLength": "7",
+  "loadCapacity": "10",
+  "truckHeight": "10",
+  "rcPhoto": "693ac47f1085c7c995bfe272",
+  "imageIds": [ "693ac4811085c7c995bfe274", "693ac4811085c7c995bfe273" ]
+}
+
+
+
+### Create BOOKINGS
+POST  http://0.0.0.0:8080/api/bookings/
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "fromAddress" : "1 Another text name here",
+  "fromLatitude": 21.2160891,
+   "fromLongitude": 72.8887893,
+  "toAddress": "Some desctination",
+  "toLatitude": 21.214690800949086,
+   "toLongitude": 72.8916223347187,
+  "bookingDate": "2024-06-30T10:00:00.000Z",
+  "truckType": "pickup",
+  "bodyType": "container",
+  "truckLength": "7",
+  "loadCapacity": "10",
+  "truckHeight": "10",
+  "estimatedKm": "0.00",
+  "driverNotes": "some driver notes"
+}
+
+### Get Notifications
+GET  http://0.0.0.0:8080/api/notifications/
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+
+

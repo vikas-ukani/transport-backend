@@ -1,5 +1,5 @@
-import { removeImagesFromMedia } from '../helper/mediaHelper.js';
-import prisma from '../lib/prisma.js';
+import { removeImagesFromMedia } from "../helper/mediaHelper.js";
+import prisma from "../lib/prisma.js";
 
 export const getVehicles = async (req, res) => {
   try {
@@ -7,6 +7,9 @@ export const getVehicles = async (req, res) => {
     let vehicles = await prisma.vehicle.findMany({
       where: {
         ownerId: req.userId,
+      },
+      orderBy: {
+        createdAt: "desc",
       },
     });
 
@@ -26,11 +29,24 @@ export const getVehicles = async (req, res) => {
             type: true,
           },
         });
+        const rcImages = await prisma.media.findMany({
+          where: {
+            id: {
+              in: v.rcPhotos || [],
+            },
+          },
+          select: {
+            id: true,
+            url: true,
+            type: true,
+          },
+        });
         return {
           ...v,
           images: images,
+          rcImages: rcImages,
         };
-      })
+      }),
     );
 
     return res.status(200).json({
@@ -38,10 +54,10 @@ export const getVehicles = async (req, res) => {
       vehicles,
     });
   } catch (error) {
-    console.error('Error fetching vehicles:', error);
+    console.error("Error fetching vehicles:", error);
     return res.status(500).json({
       success: false,
-      message: 'An error occurred while fetching vehicles.',
+      message: "An error occurred while fetching vehicles.",
       error: error.message,
     });
   }
@@ -62,7 +78,7 @@ export const getVehicleById = async (req, res) => {
     if (!vehicle) {
       return res.status(404).json({
         success: false,
-        message: 'Vehicle not found.',
+        message: "Vehicle not found.",
       });
     }
 
@@ -81,9 +97,11 @@ export const getVehicleById = async (req, res) => {
     });
 
     // Fetch images for vehicle from media collection
-    const rcPhoto = await prisma.media.findFirst({
+    const rcPhotos = await prisma.media.findMany({
       where: {
-        id: vehicle.rcPhoto,
+        id: {
+          in: vehicle.rcPhotos || [],
+        },
       },
       select: {
         id: true,
@@ -97,14 +115,14 @@ export const getVehicleById = async (req, res) => {
       data: {
         ...vehicle,
         images,
-        rcPhotoImage: rcPhoto,
+        rcPhotos: rcPhotos,
       },
     });
   } catch (error) {
-    console.error('Error fetching vehicle by ID:', error);
+    console.error("Error fetching vehicle by ID:", error);
     return res.status(500).json({
       success: false,
-      message: 'An error occurred while fetching vehicle details.',
+      message: "An error occurred while fetching vehicle details.",
       error: error.message,
     });
   }
@@ -114,7 +132,7 @@ export const registerVehicle = async (req, res) => {
   try {
     const params = {
       ...req.body,
-      status: 'pending',
+      status: "pending",
       ownerId: req.userId,
       // Optionally, set ownerId from req.user if available
       // ownerId: req.user && req.user.id ? req.user.id : undefined,
@@ -127,21 +145,21 @@ export const registerVehicle = async (req, res) => {
 
     return res.status(201).json({
       success: true,
-      message: 'Vehicle registered successfully',
+      message: "Vehicle registered successfully",
       vehicle,
     });
   } catch (error) {
-    if (error.code === 'P2002') {
+    if (error.code === "P2002") {
       // Unique constraint failed (e.g., rcNumber already exists)
       return res.status(400).json({
         success: false,
-        message: 'Vehicle with this RC Number already exists.',
+        message: "Vehicle with this RC Number already exists.",
       });
     }
-    console.error('Error registering vehicle:', error);
+    console.error("Error registering vehicle:", error);
     return res.status(500).json({
       success: false,
-      message: 'An error occurred while registering the vehicle.',
+      message: "An error occurred while registering the vehicle.",
       error: error.message,
     });
   }
@@ -153,7 +171,7 @@ export const updateVehicle = async (req, res) => {
     const updateData = { ...req.body };
 
     // Update vehicle data
-    const { rcPhoto, imageIds } = updateData;
+    const { rcPhotos, imageIds } = updateData;
 
     // Find the vehicle by id and ownerId before updating
     const existingVehicle = await prisma.vehicle.findFirst({
@@ -166,7 +184,7 @@ export const updateVehicle = async (req, res) => {
     if (!existingVehicle) {
       return res.status(404).json({
         success: false,
-        message: 'Vehicle not found.',
+        message: "Vehicle not found.",
       });
     }
     const updatedVehicle = await prisma.vehicle.updateMany({
@@ -176,8 +194,8 @@ export const updateVehicle = async (req, res) => {
       },
       data: {
         ...updateData,
-        // Only update rcPhoto if provided
-        rcPhoto: rcPhoto === null ? existingVehicle.rcPhoto : rcPhoto,
+        // Only update rcPhotos if provided
+        rcPhotos: rcPhotos === null ? existingVehicle.rcPhotos : rcPhotos,
         // Only update imageIds if provided
         imageIds: imageIds.length === 0 ? existingVehicle.imageIds : imageIds,
       },
@@ -194,7 +212,7 @@ export const updateVehicle = async (req, res) => {
       // If imageIds is an empty array, it means no changes, so skip deletion
       if (imageIds.length > 0) {
         const removedImageIds = previousImageIds.filter(
-          (id) => !imageIds.includes(id)
+          (id) => !imageIds.includes(id),
         );
         removeImagesFromMedia(removedImageIds);
       }
@@ -203,19 +221,19 @@ export const updateVehicle = async (req, res) => {
     if (updatedVehicle.count === 0) {
       return res.status(404).json({
         success: false,
-        message: 'Vehicle not found or no changes made.',
+        message: "Vehicle not found or no changes made.",
       });
     }
 
     return res.status(200).json({
       success: true,
-      message: 'Vehicle updated successfully',
+      message: "Vehicle updated successfully",
     });
   } catch (error) {
-    console.error('Error updating vehicle:', error);
+    console.error("Error updating vehicle:", error);
     return res.status(500).json({
       success: false,
-      message: 'An error occurred while updating the vehicle.',
+      message: "An error occurred while updating the vehicle.",
       error: error.message,
     });
   }
@@ -225,30 +243,49 @@ export const deleteVehicle = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Delete vehicle
-    const deletedVehicle = await prisma.vehicle.deleteMany({
+    // Find the vehicle to get image file references before deleting
+    const vehicle = await prisma.vehicle.findFirst({
       where: {
         id: id,
         ownerId: req.userId,
       },
     });
 
-    if (deletedVehicle.count === 0) {
+    if (!vehicle) {
       return res.status(404).json({
         success: false,
-        message: 'Vehicle not found.',
+        message: "Vehicle not found.",
       });
     }
 
+    
+    // Remove vehicle images from media and local storage
+    if (vehicle.imageIds && vehicle.imageIds.length > 0) {
+      await removeImagesFromMedia(vehicle.imageIds);
+    }
+
+    // Remove RC Book images from media and local storage (if such property exists)
+    if (vehicle.rcPhotos && vehicle.rcPhotos.length > 0) {
+      await removeImagesFromMedia(vehicle.rcPhotos);
+    }
+
+    // Now delete the vehicle entry itself
+    await prisma.vehicle.delete({
+      where: {
+        id: id,
+      },
+    });
+
+
     return res.status(200).json({
       success: true,
-      message: 'Vehicle deleted successfully',
+      message: "Vehicle deleted successfully",
     });
   } catch (error) {
-    console.error('Error deleting vehicle:', error);
+    console.error("Error deleting vehicle:", error);
     return res.status(500).json({
       success: false,
-      message: 'An error occurred while deleting the vehicle.',
+      message: "An error occurred while deleting the vehicle.",
       error: error.message,
     });
   }

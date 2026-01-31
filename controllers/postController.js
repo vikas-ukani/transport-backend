@@ -178,7 +178,7 @@ export const likePost = async (req, res, next) => {
       updatedLikes.push(userId);
     }
 
-    console.log('updatedLikes', updatedLikes)
+    console.log('updatedLikes', updatedLikes);
     const updatedPost = await prisma.post.update({
       where: { id: postId },
       data: { likes: updatedLikes },
@@ -199,6 +199,15 @@ export const getPost = async (req, res, next) => {
     const postId = req.params.id;
     const post = await prisma.post.findUnique({
       where: { id: postId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            photo: true,
+          },
+        },
+      },
     });
 
     // Fetch images from media table for the imageIds of this post
@@ -215,7 +224,9 @@ export const getPost = async (req, res, next) => {
         },
       });
     }
-    post.images = images;
+    if (post) {
+      post.images = images;
+    }
 
     if (!post) {
       return res.status(404).json({

@@ -1,24 +1,15 @@
-import { Router } from 'express';
+import { Router } from "express";
 
 import {
-  forgotPassword,
-  register,
-  resetPassword,
-  sendEmailOTP,
-  sendMobileOTP,
-  signin,
-  verifyEmailOTP,
-  verifyMobileOTP,
-} from '../../controllers/authController.js';
-import {
   createBooking,
+  getBookingById,
   getMyBookings,
-} from '../../controllers/bookingController.js';
+} from "../../controllers/bookingController.js";
 import {
   getNotificationsByUserId,
   markAllNotificationsAsRead,
   markNotificationAsRead,
-} from '../../controllers/notificationController.js';
+} from "../../controllers/notificationController.js";
 import {
   createPost,
   deletePost,
@@ -28,43 +19,27 @@ import {
   getPost,
   likePost,
   updatePost,
-} from '../../controllers/postController.js';
+} from "../../controllers/postController.js";
 import {
   createUser,
   getUsers,
   partialUpdate,
-} from '../../controllers/userController.js';
+} from "../../controllers/userController.js";
 import {
   deleteVehicle,
   getVehicleById,
   getVehicles,
   registerVehicle,
   updateVehicle,
-} from '../../controllers/vehicleController.js';
-import { validateRequest } from '../../lib/validateRequest.js';
-import { apiMiddleware } from '../../middlewares/authMiddleware.js';
+} from "../../controllers/vehicleController.js";
+import { validateRequest } from "../../lib/validateRequest.js";
+import { apiMiddleware } from "../../middlewares/authMiddleware.js";
 import {
   CreateBookingSchema,
   createPostSchema,
-  loginSchema,
-  registerSchema,
   RegisterVehicleSchema,
-  UpdateVehicleSchema,
-} from '../../schema/apiSchema.js';
-
-const authRouters = Router();
-
-// Auth Routers
-authRouters.post('/signin', validateRequest(loginSchema), signin);
-authRouters.post('/register', validateRequest(registerSchema), register);
-// OTP
-authRouters.post('/mobile-send-otp', sendMobileOTP);
-authRouters.post('/mobile-verify-otp', verifyMobileOTP);
-authRouters.post('/email-send-otp', sendEmailOTP);
-authRouters.post('/email-verify-otp', verifyEmailOTP);
-
-authRouters.post('/forgot-password', forgotPassword);
-authRouters.post('/reset-password', resetPassword);
+  UpdateVehicleSchema
+} from "../../schema/apiSchema.js";
 
 // API ////   ---------
 
@@ -72,48 +47,42 @@ const apiRouters = Router();
 // API Middleware
 apiRouters.use(apiMiddleware);
 
-apiRouters.route('/videos').get(getAllVideos);
+apiRouters.route("/videos").get(getAllVideos);
 apiRouters
-  .route('/posts')
+  .route("/posts")
   .get(getAllPosts)
   .post(validateRequest(createPostSchema), createPost);
-apiRouters.get('/my-posts', getMyPosts);
+apiRouters.get("/my-posts", getMyPosts);
 apiRouters
-  .route('/posts/:id', apiMiddleware)
+  .route("/posts/:id", apiMiddleware)
   .get(getPost)
   .put(validateRequest(createPostSchema), updatePost)
   .delete(deletePost);
-apiRouters.get('/like-post/:id', likePost);
+apiRouters.get("/like-post/:id", likePost);
 //   .post(validateRequest(createPostSchema), createPost);
 
 // vehicles routes
 apiRouters
-  .route('/vehicles')
+  .route("/vehicles")
   .get(getVehicles)
   .post(validateRequest(RegisterVehicleSchema), registerVehicle);
 apiRouters
-  .route('/vehicle/:id')
+  .route("/vehicle/:id")
   .get(getVehicleById)
   .put(validateRequest(UpdateVehicleSchema), updateVehicle)
   .delete(deleteVehicle);
 
-apiRouters.route('/users', apiMiddleware).get(getUsers).post(createUser);
-apiRouters.put('/users/partial-update/:id', partialUpdate);
-// authRouters
-//   .route('/users/:id')
-//   .get(getUserById)
-//   .put(updateUser)
-//   .delete(deleteUser);
+apiRouters.route("/users", apiMiddleware).get(getUsers).post(createUser);
+apiRouters.put("/users/partial-update/:id", partialUpdate);
 
 apiRouters
-  .route('/bookings')
+  .route("/bookings")
   .get(getMyBookings)
   .post(validateRequest(CreateBookingSchema), createBooking);
-
+apiRouters.route("/booking/:id").get(getBookingById);
 // Notifications routes
-apiRouters.get('/notifications', getNotificationsByUserId);
-apiRouters.patch('/notifications/:id/read', markNotificationAsRead);
-apiRouters.patch('/notifications/read-all', markAllNotificationsAsRead);
+apiRouters.get("/notifications", getNotificationsByUserId);
+apiRouters.patch("/notifications/:id/read", markNotificationAsRead);
+apiRouters.patch("/notifications/read-all", markAllNotificationsAsRead);
 
-authRouters.use('/', apiRouters);
-export default authRouters;
+export default apiRouters;

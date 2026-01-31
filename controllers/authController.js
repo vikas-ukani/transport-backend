@@ -1,7 +1,7 @@
-import jwt from 'jsonwebtoken';
-import { sendEmail } from '../lib/email.js'; // Adjust as needed
-import { createToken, hashPassword, verifyPassword } from '../lib/jwt.js'; // Adjust as needed
-import prisma from '../lib/prisma.js'; // Adjust path as needed
+import jwt from "jsonwebtoken";
+import { sendEmail } from "../lib/email.js"; // Adjust as needed
+import { createToken, hashPassword, verifyPassword } from "../lib/jwt.js"; // Adjust as needed
+import prisma from "../lib/prisma.js"; // Adjust path as needed
 
 // In-memory stores for OTPs and used tokens
 const mobileOtpStore = {};
@@ -19,7 +19,7 @@ export const signin = async (req, res) => {
       if (!password || !verifyPassword(password, user.password)) {
         return res.json({
           success: false,
-          message: 'Incorrect email or password.',
+          message: "Incorrect email or password.",
         });
       }
       const token = createToken(String(user.id));
@@ -27,9 +27,16 @@ export const signin = async (req, res) => {
       delete userObj.password;
       return res.json({ success: true, token, user: userObj });
     } else {
+      if (user.isVerified === false) {
+        return res.json({
+          success: false,
+          message:
+            "Your account is not verified. Please verify your account before signing in.",
+        });
+      }
       return res.json({
         success: false,
-        message: 'Unable to get your account. Please create new one.',
+        message: "Unable to get your account. Please create new one.",
       });
     }
   } catch (error) {
@@ -56,13 +63,13 @@ export const register = async (req, res) => {
     if (existingUser) {
       return res.json({
         success: false,
-        message: 'The email or mobile already exists.',
+        message: "The email or mobile already exists.",
       });
     }
     if (input.password !== input.confirm_password) {
       return res.json({
         success: false,
-        message: 'Password not matching with confirm password.',
+        message: "Password not matching with confirm password.",
       });
     }
 
@@ -76,11 +83,26 @@ export const register = async (req, res) => {
 
     const newUser = await prisma.user.findFirst({ where: { id: user.id } });
     if (newUser.password) delete newUser.password;
+
+    // Send Account verify link
+    // Send Account verification link to user's email
+    // Assuming sendVerificationEmail(to, token) is a utility you have, otherwise this is a stub
+    try {
+      const verificationToken = createToken(String(user.id)); // Reuse/create a token for verification
+      // Replace with your actual sender function:
+      if (newUser.email) {
+        await sendVerificationEmail(newUser.email, verificationToken);
+      }
+    } catch (emailErr) {
+      // Optionally log this but do not fail registration because of email send failure
+      console.error("Failed to send verification email:", emailErr);
+    }
+
     return res.status(201).json({
       success: true,
       token: createToken(String(user.id)),
       user: newUser,
-      message: 'Your account has been created.',
+      message: "Your account has been created.",
     });
   } catch (error) {
     return res.json({
@@ -90,6 +112,50 @@ export const register = async (req, res) => {
   }
 };
 
+const sendVerificationEmail = async (to, token) => {
+  // Set host and port for system-generated links, fallback to env or default values
+  const host = process.env.SYSTEM_HOST || "localhost";
+  const port = process.env.SYSTEM_PORT || "8080";
+  const verifyLink = `http://${host}:${port}/verify-account?token=${token}&email=${to}`;
+
+  const subject = "Verify Your Account";
+  const body = `
+    <html>
+      <body style="font-family:Arial,sans-serif; background-color:#f7f7f7; color:#333; padding:32px;">
+        <div style="max-width:520px; background:white; margin:0 auto; border-radius:8px; box-shadow:0 3px 14px rgba(128,0,128,0.16),0 1.5px 4px rgba(128,0,128,0.08); padding:32px;">
+          <h2 style="color:#6c2eb8; margin-bottom:16px;">Verify Your Account</h2>
+          <p>Welcome! Please verify your account by clicking the button below:</p>
+          <div style="text-align:center; margin:32px 0;">
+            <a href="${verifyLink}" 
+               style="
+                  display:inline-block; 
+                  padding:16px 32px; 
+                  background-color:#6c2eb8; 
+                  color:#fff; 
+                  font-weight:bold; 
+                  font-size:16px; 
+                  border-radius:6px; 
+                  text-decoration:none;
+                  box-shadow:0 2px 8px rgba(108,46,184,0.10);">
+              Verify Account
+            </a>
+          </div>
+          <p style="color:#888;font-size:13px;">
+            If you did not create an account, please ignore this email.<br>
+            — ${process.env.APP_NAME} Team
+          </p>
+        </div>
+      </body>
+    </html>
+  `;
+
+  await sendEmail({
+    to,
+    subject,
+    html: body,
+  });
+};
+
 // Mobile OTP: send and verify
 export const sendMobileOTP = async (req, res) => {
   try {
@@ -97,7 +163,7 @@ export const sendMobileOTP = async (req, res) => {
     // Generate a 6-digit OTP
     const otp = String(Math.floor(100000 + Math.random() * 900000)).padStart(
       6,
-      '0'
+      "0"
     );
     mobileOtpStore[mobile] = otp;
     // TODO: Integrate with SMS gateway
@@ -109,7 +175,7 @@ export const sendMobileOTP = async (req, res) => {
   } catch (error) {
     return res.json({
       success: false,
-      message: error.message || 'Failed to send mobile OTP.',
+      message: error.message || "Failed to send mobile OTP.",
     });
   }
 };
@@ -121,19 +187,19 @@ export const verifyMobileOTP = async (req, res) => {
     if (!expectedOtp) {
       return res.json({
         success: false,
-        message: 'OTP not requested for this mobile.',
+        message: "OTP not requested for this mobile.",
       });
     }
     if (otp === expectedOtp) {
       delete mobileOtpStore[mobile];
-      return res.json({ success: true, message: 'OTP verified successfully.' });
+      return res.json({ success: true, message: "OTP verified successfully." });
     } else {
-      return res.json({ success: false, message: 'Invalid OTP.' });
+      return res.json({ success: false, message: "Invalid OTP." });
     }
   } catch (error) {
     return res.json({
       success: false,
-      message: error.message || 'Failed to verify mobile OTP.',
+      message: error.message || "Failed to verify mobile OTP.",
     });
   }
 };
@@ -142,13 +208,14 @@ export const verifyMobileOTP = async (req, res) => {
 export const sendEmailOTP = async (req, res) => {
   try {
     const { email } = req.body;
+    console.log("email", email);
     const otp = String(Math.floor(100000 + Math.random() * 900000)).padStart(
       6,
-      '0'
+      "0"
     );
     emailOtpStore[email] = otp;
 
-    const subject = 'Your OTP for Verification';
+    const subject = "Your OTP for Verification";
     const body = `Your verification OTP is: ${otp}`;
 
     await sendEmail({
@@ -162,6 +229,7 @@ export const sendEmailOTP = async (req, res) => {
       message: `OTP sent to ${email}.`,
     });
   } catch (e) {
+    console.log("e.message", e.message);
     return res.json({ message: `Failed to send email: ${e}`, success: false });
   }
 };
@@ -173,22 +241,22 @@ export const verifyEmailOTP = async (req, res) => {
     if (!expectedOtp) {
       return res.json({
         success: false,
-        message: 'OTP not requested for this email.',
+        message: "No OTP for this email.",
       });
     }
     if (otp === expectedOtp) {
       delete emailOtpStore[email];
       return res.json({
         success: true,
-        message: 'Email OTP verified successfully.',
+        message: "Email OTP verified successfully.",
       });
     } else {
-      return res.json({ success: false, message: 'Invalid OTP.' });
+      return res.json({ success: false, message: "Invalid OTP." });
     }
   } catch (error) {
     return res.json({
       success: false,
-      message: error.message || 'Failed to verify email OTP.',
+      message: error.message || "Failed to verify email OTP.",
     });
   }
 };
@@ -213,14 +281,14 @@ export const forgotPassword = async (req, res) => {
         sub: String(user.id),
         email,
         exp,
-        type: 'reset',
+        type: "reset",
       },
       process.env.JWT_SECRET
     );
 
     const resetLink = `${process.env.CLIENT_ORIGIN}/reset-password?token=${token}&email=${email}`;
 
-    const subject = 'Reset Your Password';
+    const subject = "Reset Your Password";
     const body = `
       <html>
         <body style="font-family:Arial,sans-serif; background-color:#f7f7f7; color:#333; padding:32px;">
@@ -287,11 +355,11 @@ export const resetPassword = async (req, res) => {
     let payload;
     try {
       payload = jwt.verify(token, process.env.JWT_SECRET);
-      if (payload.type !== 'reset') {
-        return res.json({ success: false, message: 'Invalid reset token.' });
+      if (payload.type !== "reset") {
+        return res.json({ success: false, message: "Invalid reset token." });
       }
     } catch (err) {
-      if (err.name === 'TokenExpiredError') {
+      if (err.name === "TokenExpiredError") {
         return res.json({
           success: false,
           message: "You're link has expired. Please request a new one.",
@@ -306,7 +374,7 @@ export const resetPassword = async (req, res) => {
     const userId = parseInt(payload.sub);
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) {
-      return res.json({ success: false, message: 'User not found.' });
+      return res.json({ success: false, message: "User not found." });
     }
     usedResetTokens.add(token);
     const hashedPw = hashPassword(new_password);
@@ -316,12 +384,12 @@ export const resetPassword = async (req, res) => {
     });
     return res.json({
       success: true,
-      message: 'Password has been reset successfully.',
+      message: "Password has been reset successfully.",
     });
   } catch (error) {
     return res.json({
       success: false,
-      message: error.message || 'Failed to reset password.',
+      message: error.message || "Failed to reset password.",
     });
   }
 };

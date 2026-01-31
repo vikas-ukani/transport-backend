@@ -1,4 +1,4 @@
-import prisma from '../lib/prisma.js';
+import prisma from "../lib/prisma.js";
 
 // Send Push Notification to All Drivers about New Booking
 // Send Push Notification to All Drivers about New Booking
@@ -8,14 +8,14 @@ async function notifyAllDriversOfBooking(booking) {
   try {
     // Fetch all users who are drivers
     const drivers = await prisma.user.findMany({
-      where: { type: 'driver', isVerified: true },
+      where: { type: "driver", isVerified: true },
       select: { id: true },
     });
 
     if (drivers && drivers.length > 0) {
       const driverIds = drivers.map((driver) => driver.id);
 
-      const notificationTitle = 'New Booking Available';
+      const notificationTitle = "New Booking Available";
       const notificationMessage = `A new booking has been created.`;
 
       // Save notification for each driver
@@ -32,7 +32,7 @@ async function notifyAllDriversOfBooking(booking) {
         });
       }
       // If sendPushNotification utility is implemented, call it
-      if (typeof sendPushNotification === 'function') {
+      if (typeof sendPushNotification === "function") {
         await sendPushNotification({
           userIds: driverIds,
           title: notificationTitle,
@@ -46,8 +46,8 @@ async function notifyAllDriversOfBooking(booking) {
     }
   } catch (error) {
     console.log(
-      'Error while saving notification and sending push notification',
-      error.message
+      "Error while saving notification and sending push notification",
+      error.message,
     );
   }
 }
@@ -73,7 +73,6 @@ export const createBooking = async (req, res) => {
       truckHeight,
       loadCapacity,
       estimatedKm,
-      estimatedPrice,
       driverNotes,
     } = req.body;
 
@@ -95,10 +94,9 @@ export const createBooking = async (req, res) => {
         truckHeight: truckHeight || null,
         loadCapacity: loadCapacity || null,
         estimatedKm: estimatedKm || null,
-        estimatedPrice: estimatedPrice || null,
         driverNotes: driverNotes || null,
-        status: 'pending', // default status
-        paymentStatus: 'Unpaid',
+        status: "pending", // default status
+        paymentStatus: "Unpaid",
       },
     });
 
@@ -107,14 +105,14 @@ export const createBooking = async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: 'Booking created successfully.',
+      message: "Booking created successfully.",
       booking,
     });
   } catch (error) {
-    console.error('Error creating booking:', error);
+    console.error("Error creating booking:", error);
     res.status(500).json({
       success: false,
-      message: 'Failed to create booking',
+      message: "Failed to create booking",
       error: error.message,
     });
   }
@@ -142,7 +140,7 @@ export const getMyBookings = async (req, res) => {
       where: { customerId },
       skip,
       take: limit,
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
     });
 
     res.status(200).json({
@@ -154,10 +152,44 @@ export const getMyBookings = async (req, res) => {
       bookings,
     });
   } catch (error) {
-    console.error('Error fetching my bookings:', error);
+    console.error("Error fetching my bookings:", error);
     res.status(500).json({
       success: false,
-      message: 'Failed to fetch bookings',
+      message: "Failed to fetch bookings",
+      error: error.message,
+    });
+  }
+};
+
+export const getBookingById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    console.log('id', id)
+    const customerId = req.userId;
+
+    const booking = await prisma.booking.findFirst({
+      where: {
+        id: id,
+        customerId: customerId,
+      },
+    });
+
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message: "Booking not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      booking,
+    });
+  } catch (error) {
+    console.error("Error fetching booking by ID:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch booking",
       error: error.message,
     });
   }
