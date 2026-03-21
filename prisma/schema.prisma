@@ -22,13 +22,19 @@ model User {
   isVerified      Boolean  @default(false)
 
   // Shipment details
-  // address   String?
+  address   String?
   latitude  Float?
   longitude Float?
 
   notifications Notification[]
   posts         Post[]
+  bookings         Booking[]
+
+  // Store the latest connected socketId and deviceId from the mobile device
+  socketId   String? // For real-time tracking and notifications (websocket support)
+  deviceId   String? // Mobile device id (for push notifications, tracking, etc.)
 }
+
 
 model Post {
   id          String    @id @default(auto()) @map("_id") @db.ObjectId
@@ -133,7 +139,8 @@ model Booking {
   driverNotes String?
 
   // Customer details
-  customerId String
+  customerId String  @db.ObjectId
+  owner   User   @relation(fields: [customerId], references: [id])
 
   driver   Driver? @relation(fields: [driverId], references: [id])
   driverId Int?

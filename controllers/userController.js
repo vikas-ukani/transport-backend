@@ -1,4 +1,4 @@
-import prisma from '../lib/prisma.js';
+import prisma from "../lib/prisma.js";
 
 export const getUsers = async (req, res, next) => {
   try {
@@ -25,7 +25,7 @@ export const partialUpdate = async (req, res, next) => {
     if (!id) {
       return res.status(400).json({
         success: false,
-        message: 'User ID is required for partial update.',
+        message: "User ID is required for partial update.",
       });
     }
 
@@ -43,11 +43,12 @@ export const partialUpdate = async (req, res, next) => {
     const updatedUser = await prisma.user.update({
       where: { id },
       data: updateData,
+      omit: { password: true },
     });
 
     res.status(200).json({
       success: true,
-      message: 'User updated successfully.',
+      message: "User updated successfully.",
       data: updatedUser,
     });
   } catch (error) {

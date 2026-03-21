@@ -3,6 +3,7 @@ import { Router } from "express";
 import {
   createBooking,
   getBookingById,
+  getDriverRides,
   getMyBookings,
 } from "../../controllers/bookingController.js";
 import {
@@ -80,6 +81,7 @@ apiRouters
   .get(getMyBookings)
   .post(validateRequest(CreateBookingSchema), createBooking);
 apiRouters.route("/booking/:id").get(getBookingById);
+apiRouters.get("/driver-rides", getDriverRides);
 // Notifications routes
 apiRouters.get("/notifications", getNotificationsByUserId);
 apiRouters.patch("/notifications/:id/read", markNotificationAsRead);

@@ -17,20 +17,17 @@ async function notifyAllDriversOfBooking(booking) {
 
       const notificationTitle = "New Booking Available";
       const notificationMessage = `A new booking has been created.`;
-
-      // Save notification for each driver
-      for (const driverId of driverIds) {
-        await prisma.notification.create({
-          data: {
-            userId: driverId,
-            title: notificationTitle,
-            message: notificationMessage,
-            payload: {
-              bookingId: booking.id,
-            },
+      // Save notifications for all drivers using createMany
+      await prisma.notification.createMany({
+        data: driverIds.map((driverId) => ({
+          userId: driverId,
+          title: notificationTitle,
+          message: notificationMessage,
+          payload: {
+            bookingId: booking.id,
           },
-        });
-      }
+        })),
+      });
       // If sendPushNotification utility is implemented, call it
       if (typeof sendPushNotification === "function") {
         await sendPushNotification({
@@ -164,7 +161,7 @@ export const getMyBookings = async (req, res) => {
 export const getBookingById = async (req, res) => {
   try {
     const { id } = req.params;
-    console.log('id', id)
+    console.log("id", id);
     const customerId = req.userId;
 
     const booking = await prisma.booking.findFirst({
@@ -190,6 +187,62 @@ export const getBookingById = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Failed to fetch booking",
+      error: error.message,
+    });
+  }
+};
+
+export const getDriverRides = async (req, res) => {
+  try {
+    const driverId = req.userId;
+    console.log("driverId", driverId);
+    let { page = 1, limit = 10 } = req.query;
+    page = parseInt(page, 10);
+    limit = parseInt(limit, 10);
+
+    const skip = (page - 1) * limit;
+
+    // Get total count for pagination
+    const total = await prisma.booking.count({
+      where: { status: "pending" },
+    });
+
+    // Get bookings with pagination
+    const rides = await prisma.booking.findMany({
+      where: { status: "pending" },
+      include: {
+        owner: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            mobile: true,
+            photo: true,
+            updatedAt: true,
+            isVerified: true,
+          },
+        },
+      },
+      skip,
+      take: limit,
+      orderBy: { createdAt: "desc" },
+    });
+
+    console.log("rides", rides);
+
+    res.status(200).json({
+      success: true,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+      rides,
+    });
+  } catch (error) {
+    console.error("Error fetching driver rides:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch rides",
       error: error.message,
     });
   }
