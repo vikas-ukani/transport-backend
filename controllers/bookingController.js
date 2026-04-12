@@ -99,6 +99,8 @@ export const createBooking = async (req, res) => {
         driverNotes: driverNotes || null,
         status: "pending", // default status
         paymentStatus: "Unpaid",
+        biddingOpen: false,
+        assignedDriverUserId: null,
       },
     });
 
@@ -281,7 +283,9 @@ export const placeBookingBid = async (req, res) => {
       where: { id: bookingId },
     });
     if (!booking) {
-      return res.status(404).json({ success: false, message: "Booking not found." });
+      return res
+        .status(404)
+        .json({ success: false, message: "Booking not found." });
     }
     if (booking.customerId === driverUserId) {
       return res.status(400).json({
@@ -400,7 +404,9 @@ export const acceptBookingBid = async (req, res) => {
       where: { id: bookingId, customerId },
     });
     if (!booking) {
-      return res.status(404).json({ success: false, message: "Booking not found." });
+      return res
+        .status(404)
+        .json({ success: false, message: "Booking not found." });
     }
     if (!booking.biddingOpen) {
       return res.status(400).json({
@@ -417,7 +423,9 @@ export const acceptBookingBid = async (req, res) => {
       },
     });
     if (!bid) {
-      return res.status(404).json({ success: false, message: "Bid not found." });
+      return res
+        .status(404)
+        .json({ success: false, message: "Bid not found." });
     }
 
     await prisma.$transaction(async (tx) => {
@@ -468,7 +476,8 @@ export const acceptBookingBid = async (req, res) => {
       sendNotificationToUser(bid.driverUserId, {
         type: "booking_bid_accepted",
         title: "Your bid was accepted",
-        message: "The customer accepted your price. They may pay from wallet next.",
+        message:
+          "The customer accepted your price. They may pay from wallet next.",
         data: { bookingId, bidId },
       });
     } catch (e) {
@@ -477,7 +486,8 @@ export const acceptBookingBid = async (req, res) => {
 
     return res.json({
       success: true,
-      message: "Bid accepted. You can pay from your wallet to confirm the booking.",
+      message:
+        "Bid accepted. You can pay from your wallet to confirm the booking.",
       booking: updated,
     });
   } catch (error) {
@@ -526,7 +536,12 @@ export const getDriverRides = async (req, res) => {
         },
         bids: {
           where: { driverUserId },
-          select: { id: true, fareOfferCents: true, status: true, createdAt: true },
+          select: {
+            id: true,
+            fareOfferCents: true,
+            status: true,
+            createdAt: true,
+          },
         },
         _count: { select: { bids: true } },
       },
