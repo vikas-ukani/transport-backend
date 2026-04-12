@@ -201,3 +201,40 @@ export const CreateBookingSchema = Joi.object({
     "any.required": "Driver notes are required.",
   }),
 });
+
+export const CreateStripePaymentSheetSchema = Joi.object({
+  type: Joi.string()
+    .valid("booking_payment", "vehicle_registration", "wallet_topup")
+    .required()
+    .messages({ "any.required": "Payment type is required." }),
+  bookingId: Joi.string().when("type", {
+    is: "booking_payment",
+    then: Joi.required(),
+    otherwise: Joi.forbidden(),
+  }),
+  vehicleId: Joi.string().when("type", {
+    is: "vehicle_registration",
+    then: Joi.required(),
+    otherwise: Joi.forbidden(),
+  }),
+  amountCents: Joi.number().integer().positive().when("type", {
+    is: "wallet_topup",
+    then: Joi.required(),
+    otherwise: Joi.forbidden(),
+  }),
+  preferredPaymentMethod: Joi.string()
+    .valid("UPI", "GOOGLE_PAY", "CARD")
+    .when("type", {
+      is: "wallet_topup",
+      then: Joi.optional(),
+      otherwise: Joi.forbidden(),
+    }),
+}).unknown(true);
+
+export const placeBookingBidSchema = Joi.object({
+  fareOfferCents: Joi.number().integer().min(100).required().messages({
+    "number.min": "Minimum bid is 100 paise (₹1).",
+    "any.required": "fareOfferCents is required.",
+  }),
+  note: Joi.string().max(500).optional().allow("", null),
+});

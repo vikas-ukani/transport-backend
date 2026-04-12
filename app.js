@@ -2,6 +2,7 @@ import bodyParser from "body-parser";
 import cors from "cors";
 import express from "express";
 import jwt from "jsonwebtoken";
+import { handleStripeWebhook } from "./controllers/stripeWebhookController.js";
 import prisma from "./lib/prisma.js";
 import apiRouters from "./router/api/apiRouters.js";
 import authRouter from "./router/api/authRouter.js";
@@ -22,6 +23,13 @@ const corsOptions = {
 };
 app.use(cors());
 // app.use(cors(corsOptions));
+
+// Stripe webhooks require the raw body for signature verification (must be before JSON parser)
+app.post(
+  "/webhooks/stripe",
+  express.raw({ type: "application/json" }),
+  handleStripeWebhook,
+);
 
 app.use(bodyParser.json());
 

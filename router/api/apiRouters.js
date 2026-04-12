@@ -1,45 +1,56 @@
 import { Router } from "express";
 
 import {
-  createBooking,
-  getBookingById,
-  getDriverRides,
-  getMyBookings,
+    acceptBookingBid,
+    createBooking,
+    deleteBooking,
+    getBookingById,
+    getDriverRides,
+    getMyBookings,
+    placeBookingBid,
 } from "../../controllers/bookingController.js";
 import {
-  getNotificationsByUserId,
-  markAllNotificationsAsRead,
-  markNotificationAsRead,
+    getNotificationsByUserId,
+    markAllNotificationsAsRead,
+    markNotificationAsRead,
 } from "../../controllers/notificationController.js";
 import {
-  createPost,
-  deletePost,
-  getAllPosts,
-  getAllVideos,
-  getMyPosts,
-  getPost,
-  likePost,
-  updatePost,
+    createPost,
+    deletePost,
+    getAllPosts,
+    getAllVideos,
+    getMyPosts,
+    getPost,
+    likePost,
+    updatePost,
 } from "../../controllers/postController.js";
+import { getMe } from "../../controllers/authController.js";
 import {
-  createUser,
-  getUsers,
-  partialUpdate,
+    createStripePaymentSheet,
+    getStripeConfig,
+    getWalletBalance,
+} from "../../controllers/stripePaymentController.js";
+import {
+    createUser,
+    getUsers,
+    partialUpdate,
 } from "../../controllers/userController.js";
 import {
-  deleteVehicle,
-  getVehicleById,
-  getVehicles,
-  registerVehicle,
-  updateVehicle,
+    deleteVehicle,
+    getVehicleById,
+    getVehicles,
+    registerVehicle,
+    updateVehicle,
 } from "../../controllers/vehicleController.js";
 import { validateRequest } from "../../lib/validateRequest.js";
 import { apiMiddleware } from "../../middlewares/authMiddleware.js";
 import {
-  CreateBookingSchema,
-  createPostSchema,
-  RegisterVehicleSchema,
-  UpdateVehicleSchema
+    CreateBookingSchema,
+    createPostSchema,
+    CreateStripePaymentSheetSchema,
+    placeBookingBidSchema,
+    RegisterVehicleSchema,
+    UpdateVehicleSchema,
 } from "../../schema/apiSchema.js";
 
 // API ////   ---------
@@ -47,6 +58,8 @@ import {
 const apiRouters = Router();
 // API Middleware
 apiRouters.use(apiMiddleware);
+
+apiRouters.get("/me", getMe);
 
 apiRouters.route("/videos").get(getAllVideos);
 apiRouters
@@ -80,8 +93,23 @@ apiRouters
   .route("/bookings")
   .get(getMyBookings)
   .post(validateRequest(CreateBookingSchema), createBooking);
-apiRouters.route("/booking/:id").get(getBookingById);
+apiRouters.route("/booking/:id").get(getBookingById).delete(deleteBooking);
+apiRouters.post(
+  "/booking/:id/bids",
+  validateRequest(placeBookingBidSchema),
+  placeBookingBid,
+);
+apiRouters.post("/booking/:id/bids/:bidId/accept", acceptBookingBid);
 apiRouters.get("/driver-rides", getDriverRides);
+
+apiRouters.get("/payments/stripe/config", getStripeConfig);
+apiRouters.get("/payments/wallet", getWalletBalance);
+apiRouters.post(
+  "/payments/stripe/payment-sheet",
+  validateRequest(CreateStripePaymentSheetSchema),
+  createStripePaymentSheet,
+);
+
 // Notifications routes
 apiRouters.get("/notifications", getNotificationsByUserId);
 apiRouters.patch("/notifications/:id/read", markNotificationAsRead);

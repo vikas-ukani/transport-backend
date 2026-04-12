@@ -26,9 +26,14 @@ model User {
   latitude  Float?
   longitude Float?
 
+  // Stripe & in-app wallet (cents; e.g. USD 10.00 = 1000)
+  stripeCustomerId   String?
+  walletBalanceCents Int     @default(0)
+
   notifications Notification[]
   posts         Post[]
   bookings         Booking[]
+  bidsAsDriver BookingBid[] @relation("DriverBids")
 
   // Store the latest connected socketId and deviceId from the mobile device
   socketId   String? // For real-time tracking and notifications (websocket support)
@@ -88,6 +93,10 @@ model Vehicle {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   referralCode String?
+
+  // Registration fee (Stripe)
+  registrationPaid        Boolean @default(false)
+  stripePaymentIntentId   String?
   // Additional commonly used fields
   isActive     Boolean  @default(true)
   description  String? // Optional description/details
@@ -161,8 +170,14 @@ model Booking {
   loadCapacity String?
 
   // Pricing & Payment
-  estimatedKm   String? // Estimated distance in kilometers for the booking
-  paymentStatus String  @default("Unpaid") // e.g., "Paid", "Pending", "Failed"
+  estimatedKm           String? // Estimated distance in kilometers for the booking
+  paymentStatus         String  @default("Unpaid") // e.g., "Paid", "Pending", "Failed"
+  stripePaymentIntentId String?
+  paymentAmountCents    Int? // Agreed total (cents) after bid accept; charged from wallet when paid
+
+  // Transport bidding (drivers submit prices; customer accepts one)
+  biddingOpen           Boolean  @default(true)
+  assignedDriverUserId  String?  @db.ObjectId
 
   shipment Shipment[]
 
@@ -170,6 +185,23 @@ model Booking {
   updatedAt DateTime @updatedAt
 
   driverBookingRequests DriverBookingRequest[]
+  bids                  BookingBid[]
+}
+
+model BookingBid {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  bookingId      String   @db.ObjectId
+  booking        Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  driverUserId   String   @db.ObjectId
+  driver         User     @relation("DriverBids", fields: [driverUserId], references: [id])
+  fareOfferCents Int
+  note           String?
+  status         String   @default("pending") // pending, accepted, rejected
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([bookingId])
+  @@index([driverUserId])
 }
 
 // Tracks actual execution of the shipment
@@ -212,7 +244,7 @@ model Notification {
   type      String   @default("general") // e.g., 'general', 'booking', 'promotion', etc.
   title     String
   message   String
-  payload   Json?
+  payload   Json
   isRead    Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

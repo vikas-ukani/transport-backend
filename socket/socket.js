@@ -9,6 +9,7 @@
  *   - vehicle:subscribe(vehicleId) / vehicle:unsubscribe(vehicleId)
  *   - driver:location   { driverId?, latitude, longitude, address?, timestamp? }
  *   - driver:subscribe(driverId) / driver:unsubscribe(driverId)
+ *   - booking:subscribe(bookingId) / booking:unsubscribe(bookingId)
  *
  * Events to client:
  *   - connected         { socketId, deviceId, userId }
@@ -167,6 +168,13 @@ export function initSocket(httpServer, options = {}) {
       if (driverId) socket.leave(`driver:${driverId}`);
     });
 
+    socket.on("booking:subscribe", (bookingId) => {
+      if (bookingId) socket.join(`booking:${bookingId}`);
+    });
+    socket.on("booking:unsubscribe", (bookingId) => {
+      if (bookingId) socket.leave(`booking:${bookingId}`);
+    });
+
     socket.on("disconnect", (reason) => {
       socketIdToMeta.delete(socketId);
       const set = userIdToSocketIds.get(userId);
@@ -246,6 +254,20 @@ export function broadcastDriverLocation(driverId, data) {
   io.to(`driver:${driverId}`).emit("driver:location", data);
 }
 
+/**
+ * Real-time booking / bid updates for sockets joined to `booking:${bookingId}`.
+ */
+export function emitToBookingRoom(bookingId, event, payload) {
+  if (!io || !bookingId) return;
+  io.to(`booking:${bookingId}`).emit(event, payload);
+}
+
+/** Broadcast to every connected client (drivers + customers). */
+export function broadcastGlobal(event, payload) {
+  if (!io) return;
+  io.emit(event, payload);
+}
+
 export default {
   initSocket,
   getIo,
@@ -254,4 +276,6 @@ export default {
   sendNotificationToDevice,
   broadcastVehicleLocation,
   broadcastDriverLocation,
+  emitToBookingRoom,
+  broadcastGlobal,
 };

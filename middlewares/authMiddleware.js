@@ -25,7 +25,7 @@ export const apiMiddleware = async (req, res, next) => {
       // Assuming the JWT payload looks like { id: 1, email: '...' }
       const user = await prisma.user.findUnique({
         where: { id: decoded.userId },
-        select: { id: true, email: true, name: true },
+        select: { id: true, email: true, name: true, type: true },
       });
 
       if (!user) {
@@ -37,6 +37,7 @@ export const apiMiddleware = async (req, res, next) => {
       // 4. Attach the user ID to the request object (Express custom property)
       // This makes req.userId available in subsequent controller functions
       req.userId = user.id;
+      req.userType = user.type;
 
       // Continue to the next middleware or controller function
       next();
