@@ -256,12 +256,8 @@ model WalletTopup {
   amountCents       Int
   currency          String   @default("inr")
   status            String   @default("captured")
-  razorpayOrderId   String
-  razorpayPaymentId String   @unique
-  razorpaySignature String
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
   @@index([userId, createdAt])
-  @@index([razorpayOrderId])
 }
