@@ -1,10 +1,10 @@
 import prisma from "../lib/prisma.js";
 import {
-    bookingPaymentAmountCents,
-    getStripe,
-    getStripePublishableKey,
-    stripeCurrency,
-    vehicleRegistrationFeeCents,
+  bookingPaymentAmountCents,
+  getStripe,
+  getStripePublishableKey,
+  stripeCurrency,
+  vehicleRegistrationFeeCents,
 } from "../lib/stripe.js";
 import { emitToBookingRoom, sendNotificationToUser } from "../socket/socket.js";
 
@@ -14,20 +14,44 @@ const EPHEMERAL_KEY_API_VERSION =
 
 async function ensureStripeCustomer(user) {
   const stripe = getStripe();
-  if (user.stripeCustomerId) {
-    return user.stripeCustomerId;
+  try {
+    if (user.stripeCustomerId) {
+      // Try to retrieve the customer from Stripe to ensure it exists
+      const existingCustomer = await stripe.customers.retrieve(
+        user.stripeCustomerId,
+      );
+      if (existingCustomer && existingCustomer.deleted) {
+        // Reactivate deleted customer (Stripe does not support "un-delete", so create a new one)
+        const customer = await stripe.customers.create({
+          email: user.email,
+          name: user.name,
+          metadata: { userId: user.id },
+        });
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { stripeCustomerId: customer.id },
+        });
+        return customer.id;
+      }
+      if (existingCustomer || !existingCustomer.deleted) {
+        return existingCustomer.id;
+      }
+    }
+    const customer = await stripe.customers.create({
+      email: user.email,
+      name: user.name,
+      metadata: { userId: user.id },
+    });
+    console.log("ensureStripeCustomer customer", customer);
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { stripeCustomerId: customer.id },
+    });
+    return customer.id;
+  } catch (error) {
+    console.error("Error in ensureStripeCustomer:", error);
+    throw error; // Let the error bubble up to the caller for further handling
   }
-  const customer = await stripe.customers.create({
-    email: user.email,
-    name: user.name,
-    metadata: { userId: user.id },
-  });
-  console.log("ensureStripeCustomer customer", customer);
-  await prisma.user.update({
-    where: { id: user.id },
-    data: { stripeCustomerId: customer.id },
-  });
-  return customer.id;
 }
 
 export const getWalletBalance = async (req, res) => {
@@ -50,7 +74,6 @@ export const getWalletBalance = async (req, res) => {
         .json({ success: false, message: "User not found." });
     }
 
-    console.log("user.stripeCustomerId", user.stripeCustomerId);
     // Ensure we have a Stripe customer
     const stripe = getStripe();
     let { stripeCustomerId } = user;
@@ -61,7 +84,6 @@ export const getWalletBalance = async (req, res) => {
     const stripeWalletBalanceCents =
       typeof customer.balance === "number" ? -customer.balance : 0;
     // Stripe's .balance is in cents, but credit is represented as a _negative_ number, so negate.
-    console.log("stripeWalletBalanceCents", stripeWalletBalanceCents);
     // Update latest walletBalanceCents in DB if it's out of sync
     if (stripeWalletBalanceCents !== user.walletBalanceCents) {
       await prisma.user.update({
@@ -326,12 +348,12 @@ export const createStripePaymentSheet = async (req, res) => {
         customer: customerId,
         metadata,
         description: "Wallet top-up",
-        payment_method_types: ["card", "upi", "google_pay"], // allowed Stripe payment methods
-        automatic_payment_methods: {
-          enabled: true,
-        },
-        confirm: true,
-        payment_method: "wallet",
+        payment_method_types: ["card", "upi"], //  "mobilepay" ,"google_pay", allowed Stripe payment methods
+        // automatic_payment_methods: {
+        //   enabled: true,
+        // },
+        // confirm: true,
+        // payment_method: "wallet",
       });
 
       // Create ephemeral key for the client to securely access/update payment methods via mobile Stripe SDK
