@@ -26,10 +26,12 @@ import {
 } from "../../controllers/postController.js";
 import { getMe } from "../../controllers/authController.js";
 import {
-    createStripePaymentSheet,
-    getStripeConfig,
+    createPaymentAction,
+    createRazorpayWalletTopupOrder,
+    getRazorpayConfig,
     getWalletBalance,
-} from "../../controllers/stripePaymentController.js";
+    verifyRazorpayWalletTopup,
+} from "../../controllers/razorpayPaymentController.js";
 import {
     createUser,
     getUsers,
@@ -47,10 +49,12 @@ import { apiMiddleware } from "../../middlewares/authMiddleware.js";
 import {
     CreateBookingSchema,
     createPostSchema,
-    CreateStripePaymentSheetSchema,
+    CreatePaymentActionSchema,
+    CreateRazorpayWalletTopupOrderSchema,
     placeBookingBidSchema,
     RegisterVehicleSchema,
     UpdateVehicleSchema,
+    VerifyRazorpayWalletTopupSchema,
 } from "../../schema/apiSchema.js";
 
 // API ////   ---------
@@ -102,12 +106,22 @@ apiRouters.post(
 apiRouters.post("/booking/:id/bids/:bidId/accept", acceptBookingBid);
 apiRouters.get("/driver-rides", getDriverRides);
 
-apiRouters.get("/payments/stripe/config", getStripeConfig);
+apiRouters.get("/payments/razorpay/config", getRazorpayConfig);
 apiRouters.get("/payments/wallet", getWalletBalance);
 apiRouters.post(
-  "/payments/stripe/payment-sheet",
-  validateRequest(CreateStripePaymentSheetSchema),
-  createStripePaymentSheet,
+  "/payments/action",
+  validateRequest(CreatePaymentActionSchema),
+  createPaymentAction,
+);
+apiRouters.post(
+  "/payments/razorpay/wallet/order",
+  validateRequest(CreateRazorpayWalletTopupOrderSchema),
+  createRazorpayWalletTopupOrder,
+);
+apiRouters.post(
+  "/payments/razorpay/wallet/verify",
+  validateRequest(VerifyRazorpayWalletTopupSchema),
+  verifyRazorpayWalletTopup,
 );
 
 // Notifications routes

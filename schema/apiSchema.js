@@ -202,9 +202,9 @@ export const CreateBookingSchema = Joi.object({
   }),
 });
 
-export const CreateStripePaymentSheetSchema = Joi.object({
+export const CreatePaymentActionSchema = Joi.object({
   type: Joi.string()
-    .valid("booking_payment", "vehicle_registration", "wallet_topup")
+    .valid("booking_payment", "vehicle_registration")
     .required()
     .messages({ "any.required": "Payment type is required." }),
   bookingId: Joi.string().when("type", {
@@ -217,18 +217,17 @@ export const CreateStripePaymentSheetSchema = Joi.object({
     then: Joi.required(),
     otherwise: Joi.forbidden(),
   }),
-  amountCents: Joi.number().integer().positive().when("type", {
-    is: "wallet_topup",
-    then: Joi.required(),
-    otherwise: Joi.forbidden(),
-  }),
-  preferredPaymentMethod: Joi.string()
-    .valid("UPI", "GOOGLE_PAY", "CARD")
-    .when("type", {
-      is: "wallet_topup",
-      then: Joi.optional(),
-      otherwise: Joi.forbidden(),
-    }),
+}).unknown(true);
+
+export const CreateRazorpayWalletTopupOrderSchema = Joi.object({
+  amountCents: Joi.number().integer().positive().required(),
+}).unknown(true);
+
+export const VerifyRazorpayWalletTopupSchema = Joi.object({
+  razorpayOrderId: Joi.string().required(),
+  razorpayPaymentId: Joi.string().required(),
+  razorpaySignature: Joi.string().required(),
+  amountCents: Joi.number().integer().positive().required(),
 }).unknown(true);
 
 export const placeBookingBidSchema = Joi.object({

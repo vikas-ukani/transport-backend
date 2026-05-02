@@ -26,20 +26,19 @@ model User {
   latitude  Float?
   longitude Float?
 
-  // Stripe & in-app wallet (cents; e.g. USD 10.00 = 1000)
-  stripeCustomerId   String?
-  walletBalanceCents Int     @default(0)
+  // In-app wallet (cents; e.g. INR 10.00 = 1000)
+  walletBalanceCents Int           @default(0)
+  walletTopups       WalletTopup[]
 
   notifications Notification[]
   posts         Post[]
-  bookings         Booking[]
-  bidsAsDriver BookingBid[] @relation("DriverBids")
+  bookings      Booking[]
+  bidsAsDriver  BookingBid[]   @relation("DriverBids")
 
   // Store the latest connected socketId and deviceId from the mobile device
-  socketId   String? // For real-time tracking and notifications (websocket support)
-  deviceId   String? // Mobile device id (for push notifications, tracking, etc.)
+  socketId String? // For real-time tracking and notifications (websocket support)
+  deviceId String? // Mobile device id (for push notifications, tracking, etc.)
 }
-
 
 model Post {
   id          String    @id @default(auto()) @map("_id") @db.ObjectId
@@ -95,11 +94,11 @@ model Vehicle {
   referralCode String?
 
   // Registration fee (Stripe)
-  registrationPaid        Boolean @default(false)
-  stripePaymentIntentId   String?
+  registrationPaid      Boolean @default(false)
+  stripePaymentIntentId String?
   // Additional commonly used fields
-  isActive     Boolean  @default(true)
-  description  String? // Optional description/details
+  isActive              Boolean @default(true)
+  description           String? // Optional description/details
 
   vehicle Shipment[]
 
@@ -148,8 +147,8 @@ model Booking {
   driverNotes String?
 
   // Customer details
-  customerId String  @db.ObjectId
-  owner   User   @relation(fields: [customerId], references: [id])
+  customerId String @db.ObjectId
+  owner      User   @relation(fields: [customerId], references: [id])
 
   driver   Driver? @relation(fields: [driverId], references: [id])
   driverId Int?
@@ -176,8 +175,8 @@ model Booking {
   paymentAmountCents    Int? // Agreed total (cents) after bid accept; charged from wallet when paid
 
   // Transport bidding (drivers submit prices; customer accepts one)
-  biddingOpen           Boolean  @default(true)
-  assignedDriverUserId  String?  @db.ObjectId
+  biddingOpen          Boolean @default(true)
+  assignedDriverUserId String? @db.ObjectId
 
   shipment Shipment[]
 
@@ -248,4 +247,21 @@ model Notification {
   isRead    Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model WalletTopup {
+  id                String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId            String   @db.ObjectId
+  user              User     @relation(fields: [userId], references: [id])
+  amountCents       Int
+  currency          String   @default("inr")
+  status            String   @default("captured")
+  razorpayOrderId   String
+  razorpayPaymentId String   @unique
+  razorpaySignature String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([userId, createdAt])
+  @@index([razorpayOrderId])
 }
