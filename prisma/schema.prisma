@@ -7,6 +7,21 @@ datasource db {
   url      = env("DBLINK")
 }
 
+// ─── Admin ────────────────────────────────────────────────────────────────────
+model AdminUser {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  name        String
+  email       String    @unique
+  password    String
+  role        String    @default("admin")
+  photo       String?
+  isActive    Boolean   @default(true)
+  resetToken  String?
+  resetExpiry DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
 model User {
   id              String   @id @default(auto()) @map("_id") @db.ObjectId
   name            String
@@ -27,8 +42,10 @@ model User {
   longitude Float?
 
   // In-app wallet (cents; e.g. INR 10.00 = 1000)
-  walletBalanceCents Int           @default(0)
-  walletTopups       WalletTopup[]
+  walletId         String?
+  cf_sub_wallet_id String?
+
+  walletTopups WalletTopup[]
 
   notifications Notification[]
   posts         Post[]
@@ -41,13 +58,14 @@ model User {
 }
 
 model Post {
-  id          String    @id @default(auto()) @map("_id") @db.ObjectId
-  title       String
-  content     String?
-  published   Boolean   @default(false)
-  isActive    Boolean   @default(false)
-  userId      String?   @db.ObjectId
-  user        User?     @relation(fields: [userId], references: [id])
+  id        String  @id @default(auto()) @map("_id") @db.ObjectId
+  title     String
+  content   String?
+  published Boolean @default(false)
+  isActive  Boolean @default(false)
+  userId    String? @db.ObjectId
+  user      User?   @relation(fields: [userId], references: [id])
+
   imageIds    String[]
   likes       String[]
   publishedAt DateTime?
@@ -93,12 +111,10 @@ model Vehicle {
   updatedAt    DateTime @updatedAt
   referralCode String?
 
-  // Registration fee (Stripe)
-  registrationPaid      Boolean @default(false)
-  stripePaymentIntentId String?
+  registrationPaid Boolean @default(false)
   // Additional commonly used fields
-  isActive              Boolean @default(true)
-  description           String? // Optional description/details
+  isActive         Boolean @default(true)
+  description      String? // Optional description/details
 
   vehicle Shipment[]
 
@@ -169,10 +185,9 @@ model Booking {
   loadCapacity String?
 
   // Pricing & Payment
-  estimatedKm           String? // Estimated distance in kilometers for the booking
-  paymentStatus         String  @default("Unpaid") // e.g., "Paid", "Pending", "Failed"
-  stripePaymentIntentId String?
-  paymentAmountCents    Int? // Agreed total (cents) after bid accept; charged from wallet when paid
+  estimatedKm        String? // Estimated distance in kilometers for the booking
+  paymentStatus      String  @default("Unpaid") // e.g., "Paid", "Pending", "Failed"
+  paymentAmountCents Int? // Agreed total (cents) after bid accept; charged from wallet when paid
 
   // Transport bidding (drivers submit prices; customer accepts one)
   biddingOpen          Boolean @default(true)
@@ -250,14 +265,14 @@ model Notification {
 }
 
 model WalletTopup {
-  id                String   @id @default(auto()) @map("_id") @db.ObjectId
-  userId            String   @db.ObjectId
-  user              User     @relation(fields: [userId], references: [id])
-  amountCents       Int
-  currency          String   @default("inr")
-  status            String   @default("captured")
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId      String   @db.ObjectId
+  user        User     @relation(fields: [userId], references: [id])
+  amountCents Int
+  currency    String   @default("inr")
+  status      String   @default("captured")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   @@index([userId, createdAt])
 }

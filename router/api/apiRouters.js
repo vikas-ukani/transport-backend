@@ -1,5 +1,6 @@
 import { Router } from "express";
 
+import { getMe } from "../../controllers/authController.js";
 import {
     acceptBookingBid,
     createBooking,
@@ -24,14 +25,6 @@ import {
     likePost,
     updatePost,
 } from "../../controllers/postController.js";
-import { getMe } from "../../controllers/authController.js";
-import {
-    createPaymentAction,
-    createRazorpayWalletTopupOrder,
-    getRazorpayConfig,
-    getWalletBalance,
-    verifyRazorpayWalletTopup,
-} from "../../controllers/razorpayPaymentController.js";
 import {
     createUser,
     getUsers,
@@ -44,17 +37,23 @@ import {
     registerVehicle,
     updateVehicle,
 } from "../../controllers/vehicleController.js";
+import {
+    createWallet,
+    createWalletOrder,
+    getWalletBalance,
+    getWalletDetails,
+    getWalletStatement,
+    topupWallet,
+    withdrawWalletToBank
+} from "../../controllers/walletController.js";
 import { validateRequest } from "../../lib/validateRequest.js";
 import { apiMiddleware } from "../../middlewares/authMiddleware.js";
 import {
     CreateBookingSchema,
     createPostSchema,
-    CreatePaymentActionSchema,
-    CreateRazorpayWalletTopupOrderSchema,
     placeBookingBidSchema,
     RegisterVehicleSchema,
-    UpdateVehicleSchema,
-    VerifyRazorpayWalletTopupSchema,
+    UpdateVehicleSchema
 } from "../../schema/apiSchema.js";
 
 // API ////   ---------
@@ -106,23 +105,14 @@ apiRouters.post(
 apiRouters.post("/booking/:id/bids/:bidId/accept", acceptBookingBid);
 apiRouters.get("/driver-rides", getDriverRides);
 
-apiRouters.get("/payments/razorpay/config", getRazorpayConfig);
-apiRouters.get("/payments/wallet", getWalletBalance);
-apiRouters.post(
-  "/payments/action",
-  validateRequest(CreatePaymentActionSchema),
-  createPaymentAction,
-);
-apiRouters.post(
-  "/payments/razorpay/wallet/order",
-  validateRequest(CreateRazorpayWalletTopupOrderSchema),
-  createRazorpayWalletTopupOrder,
-);
-apiRouters.post(
-  "/payments/razorpay/wallet/verify",
-  validateRequest(VerifyRazorpayWalletTopupSchema),
-  verifyRazorpayWalletTopup,
-);
+// Wallet
+apiRouters.post("/create-wallet-order", createWalletOrder);
+apiRouters.get("/wallet-balance", getWalletBalance);
+apiRouters.get("/wallet-create", createWallet);
+apiRouters.post("/wallet-topup", topupWallet);
+apiRouters.post("/wallet-detils", getWalletDetails);
+apiRouters.post("/wallet-statements", getWalletStatement);
+apiRouters.post("/wallet-withdraw", withdrawWalletToBank);
 
 // Notifications routes
 apiRouters.get("/notifications", getNotificationsByUserId);
