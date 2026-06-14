@@ -5,6 +5,7 @@ import {
     acceptBookingBid,
     createBooking,
     deleteBooking,
+    getBidsForBooking,
     getBookingById,
     getDriverRides,
     getMyBookings,
@@ -43,8 +44,9 @@ import {
     getWalletBalance,
     getWalletDetails,
     getWalletStatement,
+    successWalletTopUp,
     topupWallet,
-    withdrawWalletToBank
+    withdrawWalletToBank,
 } from "../../controllers/walletController.js";
 import { validateRequest } from "../../lib/validateRequest.js";
 import { apiMiddleware } from "../../middlewares/authMiddleware.js";
@@ -103,10 +105,13 @@ apiRouters.post(
   placeBookingBid,
 );
 apiRouters.post("/booking/:id/bids/:bidId/accept", acceptBookingBid);
+apiRouters.get("/booking/:id/bids", getBidsForBooking);
 apiRouters.get("/driver-rides", getDriverRides);
+// apiRouters.post("/driver-ride-bid/:bookingId", updateBookingRideBid);
 
 // Wallet
 apiRouters.post("/create-wallet-order", createWalletOrder);
+apiRouters.post("/success-wallet-topup", successWalletTopUp);
 apiRouters.get("/wallet-balance", getWalletBalance);
 apiRouters.get("/wallet-create", createWallet);
 apiRouters.post("/wallet-topup", topupWallet);

@@ -16,8 +16,8 @@ model AdminUser {
   role        String    @default("admin")
   photo       String?
   isActive    Boolean   @default(true)
-  resetToken  String?
-  resetExpiry DateTime?
+  resetToken  String?   @map("resetToken")
+  resetExpiry DateTime? @map("resetExpiry")
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 }
@@ -30,6 +30,7 @@ model User {
   type            String   @default("driver")
   password        String
   photo           String?
+  rating          Float?   @default(0.0)
   referralCode    String?
   defaultLanguage String   @default("gu")
   createdAt       DateTime @default(now())
@@ -41,20 +42,21 @@ model User {
   latitude  Float?
   longitude Float?
 
-  // In-app wallet (cents; e.g. INR 10.00 = 1000)
-  walletId         String?
-  cf_sub_wallet_id String?
-
-  walletTopups WalletTopup[]
-
   notifications Notification[]
   posts         Post[]
   bookings      Booking[]
-  bidsAsDriver  BookingBid[]   @relation("DriverBids")
 
   // Store the latest connected socketId and deviceId from the mobile device
   socketId String? // For real-time tracking and notifications (websocket support)
   deviceId String? // Mobile device id (for push notifications, tracking, etc.)
+
+  walletAmount      Float?              @default(0)
+  walletTopups      WalletTopup[]
+  walletTransaction WalletTransaction[] // Add this line to fix the error
+  counterparty      WalletTransaction[] @relation("WalletCounterparty")
+  driver            Driver?
+  bids              BookingBid[]
+  vehicles          Vehicle[]
 }
 
 model Post {
@@ -92,21 +94,26 @@ model Video {
 }
 
 model Vehicle {
-  id           String   @id @default(auto()) @map("_id") @db.ObjectId
-  driverName   String?
-  mobileNumber String?
-  rcNumber     String   @unique // Registration number, e.g., 'MH12AB1234'
-  rcPhotos     String[] // Photos URL of RC Book
-  truckType    String // e.g., 'Flatbed', can be further normalized
-  bodyType     String? // e.g., 'Open Body'
-  truckLength  String? // e.g., '20 ft'
-  truckHeight  String? // e.g., '8 ft'
-  loadCapacity String? // e.g., '10 tons'
-  traveledInKM String?  @default("0.0") // e.g., '125,000 Km'
-  rating       Float?   @default(0.0) // e.g., 4.7
-  status       String   @default("pending") // e.g., 'verified', 'pending', 'inactive'
-  imageIds     String[]
-  ownerId      String?
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  driverName    String?
+  mobileNumber  String?
+  rcNumber      String   @unique // Registration number, e.g., 'MH12AB1234'
+  vehicleNumber String? // Registration number, e.g., 'MH12AB1234'
+  rcPhotos      String[] // Photos URL of RC Book
+  truckType     String // e.g., 'Flatbed', can be further normalized
+  bodyType      String? // e.g., 'Open Body'
+  truckLength   String? // e.g., '20 ft'
+  truckHeight   String? // e.g., '8 ft'
+  loadCapacity  String? // e.g., '10 tons'
+  traveledInKM  String?  @default("0.0") // e.g., '125,000 Km'
+  rating        Float?   @default(0.0) // e.g., 4.7
+  status        String   @default("pending") // e.g., 'verified', 'pending', 'inactive'
+  imageIds      String[]
+  isAvailable   Boolean? @default(true)
+
+  ownerId String? @db.ObjectId
+  owner   User?   @relation(fields: [ownerId], references: [id])
+
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   referralCode String?
@@ -119,11 +126,13 @@ model Vehicle {
   vehicle Shipment[]
 
   // Add relation from Vehicle to Driver
-  driverId Int?
+  driverId    Int?
+  bookings    Booking[]
+  bookingBids BookingBid[]
 }
 
 model Driver {
-  id            Int     @id @map("_id")
+  id            String  @id @map("_id")
   driverId      String  @unique // Unique identifier for the driver (could be employee or internal code)
   name          String
   contact       String // Contact information (e.g., mobile number)
@@ -132,16 +141,17 @@ model Driver {
   location      String? // Current location or address as text (optional; use more advanced type if Geo support added)
 
   // One-to-one relationship: Each driver can drive only one vehicle
-  vehicleId Int? @unique
+  vehicleId Int?   @unique
+  rating    Float? @default(0.0)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   // Relation: Driver belongs to a User (i.e., the owner/creator of the driver)
-  userId   String
-  bookings Booking[]
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id])
 
-  driverBookingRequests DriverBookingRequest[]
+  bookings Booking[]
 }
 
 // Define a VehicleLocation model to track the route/history of a vehicle's locations over time.
@@ -166,8 +176,8 @@ model Booking {
   customerId String @db.ObjectId
   owner      User   @relation(fields: [customerId], references: [id])
 
+  driverId String? @db.ObjectId
   driver   Driver? @relation(fields: [driverId], references: [id])
-  driverId Int?
 
   // Shipment details
   fromAddress   String
@@ -198,24 +208,30 @@ model Booking {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  driverBookingRequests DriverBookingRequest[]
-  bids                  BookingBid[]
+  bids      BookingBid[]
+  vehicle   Vehicle?     @relation(fields: [vehicleId], references: [id])
+  vehicleId String?      @db.ObjectId
 }
 
 model BookingBid {
-  id             String   @id @default(auto()) @map("_id") @db.ObjectId
-  bookingId      String   @db.ObjectId
-  booking        Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
-  driverUserId   String   @db.ObjectId
-  driver         User     @relation("DriverBids", fields: [driverUserId], references: [id])
-  fareOfferCents Int
-  note           String?
-  status         String   @default("pending") // pending, accepted, rejected
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id        String  @id @default(auto()) @map("_id") @db.ObjectId
+  bookingId String  @db.ObjectId
+  booking   Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  driverId String @db.ObjectId
+  driver   User   @relation(fields: [driverId], references: [id], onDelete: Cascade)
+
+  vehicleId String?  @db.ObjectId
+  vehicle   Vehicle? @relation(fields: [vehicleId], references: [id])
+
+  amount    Int
+  note      String?
+  status    String   @default("pending") // pending, accepted, rejected
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([bookingId])
-  @@index([driverUserId])
+  @@index([driverId])
 }
 
 // Tracks actual execution of the shipment
@@ -235,22 +251,6 @@ model Shipment {
   updatedAt DateTime @updatedAt
 }
 
-model DriverBookingRequest {
-  id String @id @default(auto()) @map("_id") @db.ObjectId
-
-  booking   Booking @relation(fields: [bookingId], references: [id])
-  bookingId String  @db.ObjectId
-
-  driver   Driver @relation(fields: [driverId], references: [id])
-  driverId Int
-
-  status    String @default("requested") // e.g., "requested", "accepted", "rejected", etc.
-  fareOffer Float? // The fare price proposed by the driver
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
 model Notification {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
   user      User     @relation(fields: [userId], references: [id])
@@ -265,14 +265,49 @@ model Notification {
 }
 
 model WalletTopup {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
-  userId      String   @db.ObjectId
-  user        User     @relation(fields: [userId], references: [id])
-  amountCents Int
-  currency    String   @default("inr")
-  status      String   @default("captured")
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId          String   @db.ObjectId
+  user            User     @relation(fields: [userId], references: [id])
+  amount          Int
+  currency        String   @default("inr")
+  status          String   @default("pending")
+  remark          String
+  cashFreeOrderId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   @@index([userId, createdAt])
+}
+
+/// Model to track all wallet transactions, including credit and debit between users
+model WalletTransaction {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+
+  /// The user whose wallet this transaction affects (could be driver or customer)
+  userId String @db.ObjectId
+  user   User   @relation(fields: [userId], references: [id]) // single relation, not duplicate
+
+  /// If applicable, counterparty user (for P2P transfers, e.g. payment from customer to driver)
+  counterpartyId String? @db.ObjectId
+  counterparty   User?   @relation("WalletCounterparty", fields: [counterpartyId], references: [id])
+  amount         Int
+  type           String /// "credit" | "debit"
+  purpose        String /// Reason, e.g. "topup", "withdraw", "ride_payment", "refund", etc.
+  currency       String  @default("inr")
+
+  referenceId String?
+
+  /// Transaction status
+  status String @default("completed") // "pending", "failed", "completed"
+
+  /// Free-form description
+  description String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, createdAt])
+  @@index([counterpartyId])
+  @@index([type])
+  @@index([referenceId])
 }

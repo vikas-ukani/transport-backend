@@ -1,3 +1,4 @@
+import prisma from "../lib/prisma.js";
 import * as Wallet from "../payments/wallet.js";
 
 /**
@@ -6,19 +7,18 @@ import * as Wallet from "../payments/wallet.js";
  */
 export async function getWalletBalance(req, res) {
   try {
-    const { id: user_id, wallet_id, cf_sub_wallet_id } = req.user;
-    if (!user_id || !wallet_id) {
-      return res
-        .status(400)
-        .json({ error: "User wallet not found or not yet created" });
-    }
-
-    const walletDetails = await Wallet.getWalletDetails({
-      user_id,
-      wallet_id,
-      cf_sub_wallet_id,
+    const userId = req.userId;
+    const user = await prisma.user.findFirst({
+      where: {
+        id: userId,
+      },
+      select: {
+        id: true,
+        walletAmount: true,
+      },
     });
-    return res.json(walletDetails);
+
+    return res.json(user);
   } catch (err) {
     console.error("getWalletBalance error:", err);
     return res
@@ -81,31 +81,67 @@ export async function topupWallet(req, res) {
 
 export const createWalletOrder = async (req, res) => {
   try {
-    // {
-    //     "order_amount": 1.00,
-    //     "order_id": "order_id"
-    //     "order_currency": "INR",
-    //     "customer_details": {
-    //     "customer_id": "customer_id",
-    //     "customer_name":  "customer_name",
-    //     "customer_email": "customer_email",
-    //     "customer_phone": "customer_phone"
-    //     },
-    //     "order_meta": {
-    //     "notify_url": "https://test.cashfree.com"
-    //     },
-    //     "order_note": "some order note here",
-    // }
     const data = req.body;
-    console.log("req", data);
-
     const result = await Wallet.createOrder(data);
-    console.log('create wallet results: ', result)
+    await prisma.walletTopup.create({
+      data: {
+        userId: req.userId,
+        amount: result.order_amount,
+        amount: result.order_amount,
+        remark: result.order_note,
+        cashFreeOrderId: result.order_id,
+        status: "pending",
+      },
+    });
     return res.json(result);
   } catch (err) {
     console.error("createWalletOrder error:", err);
     return res.status(500).json({
       error: err?.message || "Failed to create wallet order",
+    });
+  }
+};
+
+export const successWalletTopUp = async (req, res) => {
+  try {
+    const walletTopup = await prisma.walletTopup.updateMany({
+      data: {
+        status: "success",
+      },
+      where: {
+        userId: req.userId,
+        cashFreeOrderId: req.body.cashFreeOrderId,
+        status: "pending",
+      },
+    });
+    const walletTopupData = await prisma.walletTopup.findFirst({
+      where: {
+        userId: req.userId,
+        cashFreeOrderId: req.body.cashFreeOrderId,
+        status: "success",
+      },
+    });
+    const existingUser = await prisma.user.findUnique({
+      where: { id: req.userId },
+      select: { walletAmount: true },
+    });
+    let previousAmount = existingUser?.walletAmount || 0;
+    if (walletTopup.count > 0) {
+      previousAmount =
+        previousAmount + (parseFloat(walletTopupData.amount) || 0);
+      // Update user wallet balance with incremented value
+      await prisma.user.update({
+        where: { id: req.userId },
+        data: { walletAmount: previousAmount },
+      });
+    }
+    existingUser.walletAmount = previousAmount;
+    existingUser.walletTopup = walletTopupData;
+    return res.json(existingUser);
+  } catch (error) {
+    console.error("successTopup error:", error);
+    return res.status(500).json({
+      error: error?.message || "Failed to topup wallet.",
     });
   }
 };

@@ -133,6 +133,9 @@ export function initSocket(httpServer, options = {}) {
       socket.emit("vehicle:location:ack", data);
     });
 
+
+    
+
     // Join vehicle room so this socket receives location updates for that vehicle
     socket.on("vehicle:subscribe", (vehicleId) => {
       if (vehicleId) socket.join(`vehicle:${vehicleId}`);
@@ -221,7 +224,7 @@ export function getSocketIdAndDeviceId(userId) {
  */
 export function sendNotificationToUser(userId, payload) {
   if (!io) return;
-  io.to(`user:${userId}`).emit("notification", payload);
+  io.to(`user:${userId}`).emit("notification:new", payload);
 }
 
 /**
@@ -231,7 +234,7 @@ export function sendNotificationToUser(userId, payload) {
  */
 export function sendNotificationToDevice(deviceId, payload) {
   if (!io) return;
-  io.to(`device:${deviceId}`).emit("notifications:", payload);
+  io.to(`device:${deviceId}`).emit("notification:new", payload);
 }
 
 /**

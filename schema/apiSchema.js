@@ -231,9 +231,9 @@ export const VerifyRazorpayWalletTopupSchema = Joi.object({
 }).unknown(true);
 
 export const placeBookingBidSchema = Joi.object({
-  fareOfferCents: Joi.number().integer().min(100).required().messages({
-    "number.min": "Minimum bid is 100 paise (₹1).",
-    "any.required": "fareOfferCents is required.",
+  amount: Joi.number().integer().min(100).required().messages({
+    "number.min": "Minimum bid is ₹100 rs.",
+    "any.required": "amount is required.",
   }),
-  note: Joi.string().max(500).optional().allow("", null),
+  note: Joi.string().max(500).allow("").allow(null),
 });

@@ -80,7 +80,6 @@ export const createOrder = async (data) => {
   try {
     const cashfree = getCashfreeClient();
     const resp = await cashfree.post("/orders", data);
-    console.log("cashfree order create => ", resp);
     return resp.data;
   } catch (err) {
     return handleCashfreeError(err, "Error while creating wallet");
