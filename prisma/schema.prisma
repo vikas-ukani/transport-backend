@@ -194,19 +194,26 @@ model Booking {
   truckHeight  String?
   loadCapacity String?
 
+  otpCode String? // Verify during complete ride
+
   // Pricing & Payment
   estimatedKm        String? // Estimated distance in kilometers for the booking
   paymentStatus      String  @default("Unpaid") // e.g., "Paid", "Pending", "Failed"
   paymentAmountCents Int? // Agreed total (cents) after bid accept; charged from wallet when paid
 
+  finalAmount     String?
+  remainingAmount String?
+
   // Transport bidding (drivers submit prices; customer accepts one)
   biddingOpen          Boolean @default(true)
   assignedDriverUserId String? @db.ObjectId
+  // assignedDriverUserId String?  @relation("User", fields: [driverId], references: [id])
 
   shipment Shipment[]
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   bids      BookingBid[]
   vehicle   Vehicle?     @relation(fields: [vehicleId], references: [id])
@@ -226,7 +233,7 @@ model BookingBid {
 
   amount    Int
   note      String?
-  status    String   @default("pending") // pending, accepted, rejected
+  status    String   @default("PENDING") // pending, accepted, rejected
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

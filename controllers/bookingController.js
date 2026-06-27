@@ -47,7 +47,7 @@ async function notifyAllDriversOfBooking(booking) {
       // Otherwise, you might want to implement or stub the notification logic here
     }
   } catch (error) {
-    console.log(
+    console.warn(
       "Error while saving notification and sending push notification",
       error.message,
     );
@@ -97,9 +97,9 @@ export const createBooking = async (req, res) => {
         loadCapacity: loadCapacity || null,
         estimatedKm: estimatedKm || null,
         driverNotes: driverNotes || null,
-        status: "pending", // default status
+        status: "ACTIVE", // default status
         paymentStatus: "Unpaid",
-        biddingOpen: false,
+        biddingOpen: true,
         assignedDriverUserId: null,
       },
     });
@@ -146,7 +146,6 @@ export const createBooking = async (req, res) => {
  */
 export const getMyBookings = async (req, res) => {
   try {
-    console.log("getting bookings");
     const customerId = req.userId;
     let { page = 1, limit = 10 } = req.query;
     page = parseInt(page, 10);
@@ -196,13 +195,12 @@ export const getBookingById = async (req, res) => {
         ? {
             status: "pending",
             OR: [
-              { AND: [{ biddingOpen: true }, { assignedDriverUserId: null }] },
-              { assignedDriverUserId: me },
+              { AND: [{ biddingOpen: true }, { driverId: null }] },
+              { driverId: me },
             ],
           }
         : null;
 
-    console.log("getting booking details", { id, me });
     const booking = await prisma.booking.findFirst({
       where: {
         id,
@@ -261,7 +259,6 @@ export const getBookingById = async (req, res) => {
         _count: { select: { bids: true } },
       },
     });
-    console.log("booking.bids", booking.bids);
 
     if (!booking) {
       return res.status(404).json({
@@ -335,7 +332,7 @@ export const placeBookingBid = async (req, res) => {
         message: "You cannot bid on your own request.",
       });
     }
-    if (!booking.biddingOpen || booking.status !== "pending") {
+    if (!booking.biddingOpen || booking.status !== "ACTIVE") {
       return res.status(400).json({
         success: false,
         message: "This request is not accepting bids.",
@@ -355,7 +352,7 @@ export const placeBookingBid = async (req, res) => {
       where: {
         bookingId,
         driverId: driverId,
-        status: "pending",
+        status: { in: ["PENDING", "ACTIVE"] },
       },
     });
 
@@ -384,6 +381,7 @@ export const placeBookingBid = async (req, res) => {
         where: { id: existing.id },
         data: {
           amount,
+          status: "PENDING",
           vehicleId: vehicle.id,
           note: note != null ? String(note).slice(0, 500) : null,
         },
@@ -392,13 +390,13 @@ export const placeBookingBid = async (req, res) => {
       bid = await prisma.bookingBid.create({
         data: {
           bookingId,
+          status: "PENDING",
           driverId: driverId,
           vehicleId: vehicle.id,
           amount,
           note: note != null ? String(note).slice(0, 500) : null,
         },
       });
-      console.log("New Bid Created.", bid);
     }
 
     try {
@@ -427,190 +425,6 @@ export const placeBookingBid = async (req, res) => {
   }
 };
 
-/**
- * Customer accepts a bid; agreed price is stored for wallet payment.
- */
-export const acceptBookingBid = async (req, res) => {
-  try {
-    const { id: bookingId, bidId } = req.params;
-    const customerId = req.userId;
-
-    if (req.userType !== "customer") {
-      return res.status(403).json({
-        success: false,
-        message: "Only customers can accept bids.",
-      });
-    }
-
-    const booking = await prisma.booking.findFirst({
-      where: { id: bookingId, customerId },
-    });
-    if (!booking) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Booking not available." });
-    }
-    if (!booking.biddingOpen) {
-      return res.status(400).json({
-        success: false,
-        message: "Bidding is already closed for this booking.",
-      });
-    }
-
-    const bid = await prisma.bookingBid.findFirst({
-      where: {
-        id: bidId,
-        bookingId,
-        status: "pending",
-      },
-    });
-    if (!bid) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Bid not found." });
-    }
-
-    // After bid accepted, transfer 50% of the agreed amount to the driver's account (wallet)
-    // Remaining 50% will be transferred after successful delivery (handled elsewhere).
-
-    // Get customer (payer) and driver (payee)
-    const customer = await prisma.user.findUnique({
-      where: { id: booking.customerId },
-    });
-    const driver = await prisma.user.findUnique({
-      where: { id: bid.driverId },
-    });
-
-    const PARTIAL_AMOUNT_TO_CUT = 50;
-
-    // Calculate amounts: 50% now, 50% after delivery
-    const totalAmountCents = Number(bid.amount);
-    const partialAmountCents = Math.floor(
-      (totalAmountCents * PARTIAL_AMOUNT_TO_CUT) / 100,
-    );
-
-    // Ensure customer has enough balance
-    if (parseFloat(customer.walletAmount) < partialAmountCents) {
-      throw new Error("Insufficient wallet balance for partial payment.");
-    }
-
-    await prisma.$transaction(async (tx) => {
-      await tx.bookingBid.updateMany({
-        where: { bookingId, id: { not: bidId } },
-        data: { status: "rejected" },
-      });
-      await tx.bookingBid.update({
-        where: { id: bidId },
-        data: { status: "accepted" },
-      });
-      await tx.booking.update({
-        where: { id: bookingId },
-        data: {
-          biddingOpen: false,
-          assignedDriverUserId: bid.driverId,
-          paymentAmountCents: bid.amount,
-        },
-      });
-
-      // Deduct from customer wallet and add to driver wallet (partial transfer only)
-      // Deduct from customer wallet
-      await tx.user.update({
-        where: { id: customer.id },
-        data: {
-          walletAmount: { decrement: partialAmountCents },
-        },
-      });
-
-      // Credit to driver wallet
-      await tx.user.update({
-        where: { id: driver.id },
-        data: {
-          walletAmount: { increment: partialAmountCents },
-        },
-      });
-
-      // Log debit transaction for customer
-      await tx.walletTransaction.create({
-        data: {
-          userId: customer.id,
-          counterpartyId: driver.id,
-          amount: partialAmountCents,
-          type: "debit",
-          purpose: "ride_payment",
-          currency: "inr",
-          referenceId: bookingId,
-          status: "completed",
-          description: `${PARTIAL_AMOUNT_TO_CUT}% payment debited from customer wallet on bid acceptance`,
-        },
-      });
-
-      // Log credit transaction for driver
-      await tx.walletTransaction.create({
-        data: {
-          userId: driver.id,
-          counterpartyId: customer.id,
-          amount: partialAmountCents,
-          type: "credit",
-          purpose: "ride_payment",
-          currency: "inr",
-          referenceId: bookingId,
-          status: "completed",
-          description: `${PARTIAL_AMOUNT_TO_CUT}% payment credited to driver wallet on bid acceptance`,
-        },
-      });
-    });
-
-    const updated = await prisma.booking.findUnique({
-      where: { id: bookingId },
-      include: {
-        bids: {
-          orderBy: { createdAt: "desc" },
-          include: {
-            driver: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-                mobile: true,
-              },
-            },
-          },
-        },
-      },
-    });
-
-    try {
-      emitToBookingRoom(bookingId, "booking:bid_accepted", {
-        bookingId,
-        bidId,
-        booking: updated,
-      });
-      sendNotificationToUser(bid.driverId, {
-        type: "booking_bid_accepted",
-        title: "Your bid was accepted",
-        message:
-          "The customer accepted your price. They may pay from wallet next.",
-        data: { bookingId, bidId },
-      });
-    } catch (e) {
-      console.warn("acceptBookingBid socket", e.message);
-    }
-
-    return res.json({
-      success: true,
-      message:
-        "Booking bid accepted. Partial amount has been paid to the driver. You can pay the remaining amount from your wallet once booking is completed.",
-      booking: updated,
-    });
-  } catch (error) {
-    console.error("acceptBookingBid:", error);
-    return res.status(500).json({
-      success: false,
-      message: error.message || "Failed to accept bid",
-    });
-  }
-};
-
 export const getDriverRides = async (req, res) => {
   try {
     const driverId = req.userId;
@@ -620,18 +434,24 @@ export const getDriverRides = async (req, res) => {
 
     const skip = (page - 1) * limit;
 
-    console.log("driverId", driverId);
+    let tab = req.query.tab || "all";
     const openRideWhere = {
-      status: "pending",
-      biddingOpen: true,
       // customerId: { not: driverId },
       // OR: [
-      //   { AND: [{ biddingOpen: true }, { assignedDriverUserId: null }] },
-      //   // { assignedDriverUserId: driverId },
+      //   { AND: [{ biddingOpen: true }, { driverId: null }] },
+      //   // { driverId: driverId },
       // ],
     };
+    if (tab == "my") {
+      openRideWhere.status = undefined;
+      openRideWhere.driverId = driverId;
+    } else if (tab == "closed") {
+      openRideWhere.status = "FINISHED";
+    } else {
+      openRideWhere.status = "ACTIVE";
+      openRideWhere.biddingOpen = true;
+    }
 
-    console.log("openRideWhere", JSON.stringify(openRideWhere));
     const total = await prisma.booking.count({
       where: openRideWhere,
     });
@@ -734,7 +554,6 @@ export const getBidsForBooking = async (req, res) => {
         };
       }),
     );
-    console.log("highest bids", bidsWithDrivers.length);
 
     res.status(200).json({
       success: true,
@@ -794,7 +613,6 @@ export const deleteBooking = async (req, res) => {
     const idsToDelete = notifications
       .filter((n) => n.payload && n.payload.bookingId === bookingId)
       .map((n) => n.id);
-    console.log("idsToDelete", idsToDelete);
     if (idsToDelete.length > 0) {
       await prisma.notification.deleteMany({
         where: { id: { in: idsToDelete } },

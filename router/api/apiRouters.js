@@ -2,7 +2,6 @@ import { Router } from "express";
 
 import { getMe } from "../../controllers/authController.js";
 import {
-    acceptBookingBid,
     createBooking,
     deleteBooking,
     getBidsForBooking,
@@ -26,6 +25,13 @@ import {
     likePost,
     updatePost,
 } from "../../controllers/postController.js";
+import {
+    acceptBookingBid,
+    getMyActiveRide,
+    getMyFinishedRide,
+    regenerateBookingOtp,
+    verifyCompleteRide,
+} from "../../controllers/rideController.js";
 import {
     createUser,
     getUsers,
@@ -55,7 +61,7 @@ import {
     createPostSchema,
     placeBookingBidSchema,
     RegisterVehicleSchema,
-    UpdateVehicleSchema
+    UpdateVehicleSchema,
 } from "../../schema/apiSchema.js";
 
 // API ////   ---------
@@ -105,8 +111,12 @@ apiRouters.post(
   placeBookingBid,
 );
 apiRouters.post("/booking/:id/bids/:bidId/accept", acceptBookingBid);
+apiRouters.get("/booking/:id/complete-ride-otp/:otp", verifyCompleteRide);
+apiRouters.get("/booking/:id/regenerate-otp", regenerateBookingOtp);
 apiRouters.get("/booking/:id/bids", getBidsForBooking);
 apiRouters.get("/driver-rides", getDriverRides);
+apiRouters.get("/my-running-rides", getMyActiveRide);
+apiRouters.get("/my-finished-rides", getMyFinishedRide);
 // apiRouters.post("/driver-ride-bid/:bookingId", updateBookingRideBid);
 
 // Wallet
