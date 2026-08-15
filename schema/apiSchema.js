@@ -73,6 +73,10 @@ export const createPostSchema = Joi.object({
   }),
   imageIds: Joi.array().min(1).items(Joi.string()).required().messages({
     "any.required": "Please upload and images.",
+    "array.min": "Please upload at least one image.",
+  }),
+  razorpay_payment_id: Joi.string().optional().allow(null).messages({
+    "string.base": "Razorpay Payment ID must be a string.",
   }),
 });
 

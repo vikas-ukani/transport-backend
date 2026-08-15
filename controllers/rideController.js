@@ -1,6 +1,6 @@
 import prisma from "../lib/prisma.js";
 import { emitToBookingRoom, sendNotificationToUser } from "../socket/socket.js";
-
+import { createRazorPayOrder } from "../payments/razorpay.js";
 const PARTIAL_AMOUNT_TO_CUT = 50;
 
 /**
@@ -47,9 +47,6 @@ export const acceptBookingBid = async (req, res) => {
         .json({ success: false, message: "Bid not found." });
     }
 
-    // After bid accepted, transfer 50% of the agreed amount to the driver's account (wallet)
-    // Remaining 50% will be transferred after successful delivery (handled elsewhere).
-
     // Get customer (payer) and driver (payee)
     const customer = await prisma.user.findUnique({
       where: { id: booking.customerId },
@@ -63,11 +60,6 @@ export const acceptBookingBid = async (req, res) => {
     const partialAmountCents = Math.floor(
       (totalAmountCents * PARTIAL_AMOUNT_TO_CUT) / 100,
     );
-
-    // Ensure customer has enough balance
-    if (parseFloat(customer.walletAmount) < partialAmountCents) {
-      throw new Error("Insufficient wallet balance for partial payment.");
-    }
 
     await prisma.$transaction(async (tx) => {
       await tx.bookingBid.updateMany({
@@ -87,26 +79,7 @@ export const acceptBookingBid = async (req, res) => {
           status: "RUNNING",
           assignedDriverUserId: bid.driverId,
           paymentAmountCents: bid.amount,
-          finalAmount: bid.amount,
-          // Generate a 6-digit OTP code and store it in the accepted bid (for later delivery confirmation)
-          otpCode: Math.floor(100000 + Math.random() * 900000).toString(),
-        },
-      });
-
-      // Deduct from customer wallet and add to driver wallet (partial transfer only)
-      // Deduct from customer wallet
-      await tx.user.update({
-        where: { id: customer.id },
-        data: {
-          walletAmount: { decrement: partialAmountCents },
-        },
-      });
-
-      // Credit to driver wallet
-      await tx.user.update({
-        where: { id: driver.id },
-        data: {
-          walletAmount: { increment: partialAmountCents },
+          finalAmount: String(bid.amount),
         },
       });
 
@@ -179,8 +152,7 @@ export const acceptBookingBid = async (req, res) => {
 
     return res.json({
       success: true,
-      message:
-        "Booking bid accepted. Partial amount has been paid to the driver. You can pay the remaining amount from your wallet once booking is completed.",
+      message: "Booking bid accepted. ",
       booking: updated,
     });
   } catch (error) {
@@ -247,7 +219,7 @@ export const verifyCompleteRide = async (req, res) => {
     if (booking.otpCode.toString() !== otpCode.toString()) {
       return res.status(400).json({
         success: false,
-        message: "Invalid OTP code.",
+        message: "Invalid OTP code. Please use correct OTP",
       });
     }
 
@@ -259,7 +231,6 @@ export const verifyCompleteRide = async (req, res) => {
     if (!acceptedBid) {
       throw new Error("No accepted bid found for this booking.");
     }
-
 
     // Get driver and customer
     const customer = await prisma.user.findUnique({
@@ -284,11 +255,6 @@ export const verifyCompleteRide = async (req, res) => {
     );
     const remainingAmountCents = totalAmountCents - initialPaid;
 
-    // Check if customer has enough wallet balance for the remaining payment
-    if (parseFloat(customer.walletAmount) < remainingAmountCents) {
-      throw new Error("Insufficient wallet balance for remaining payment.");
-    }
-
     await prisma.$transaction(async (tx) => {
       // Update booking as completed, clear OTP, and reset remainingAmount
       await tx.booking.update({
@@ -298,22 +264,6 @@ export const verifyCompleteRide = async (req, res) => {
           completedAt: new Date(),
           otpCode: null,
           remainingAmount: "0",
-        },
-      });
-
-      // Deduct from customer wallet
-      await tx.user.update({
-        where: { id: customer.id },
-        data: {
-          walletAmount: { decrement: remainingAmountCents },
-        },
-      });
-
-      // Credit to driver wallet
-      await tx.user.update({
-        where: { id: driver.id },
-        data: {
-          walletAmount: { increment: remainingAmountCents },
         },
       });
 
@@ -464,6 +414,19 @@ export const getMyActiveRide = async (req, res) => {
       });
     }
 
+    const driverCommissionPercent = process.env.DRIVER_COMMISSION_PERCENT || 10;
+    // Attach commission percent to the returned ride (if found)
+    activeRide.driverCommissionPercent = driverCommissionPercent
+      ? driverCommissionPercent
+      : 10.0; // fallback to default 10 if not found
+    activeRide.driverCommissionPercentAmount = Number(
+      (
+        (Number(activeRide.finalAmount) *
+          Number(activeRide.driverCommissionPercent)) /
+        100
+      ).toFixed(2),
+    );
+
     return res.status(200).json({
       success: true,
       activeRide,
@@ -473,6 +436,68 @@ export const getMyActiveRide = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Failed to fetch active ride",
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * Cancel the currently active ride for the authenticated driver.
+ * Sets the ride status to "CANCELED" if found and not already completed/CANCELED.
+ *
+ * Route: GET /api/cancel-active-ride/:id
+ */
+export const cancelMyActiveRide = async (req, res) => {
+  try {
+    const bookingId = req.params.id;
+    const driverId = req.userId;
+
+    // Find the ride assigned to this user and not already completed/CANCELED
+    const ride = await prisma.booking.findFirst({
+      where: {
+        id: bookingId,
+        assignedDriverUserId: driverId,
+        status: { notIn: ["COMPLETED", "FINISHED", "CANCELED"] },
+      },
+    });
+
+    if (!ride) {
+      return res.status(404).json({
+        success: false,
+        message: "Active ride not found or already finished/CANCELED.",
+      });
+    }
+
+    const cancelledRide = await prisma.booking.update({
+      where: { id: bookingId },
+      data: {
+        status: "ACTIVE",
+        biddingOpen: true,
+        assignedDriverUserId: null,
+        otpCode: null,
+      },
+    });
+    // Pending all rejected bids to make them available for bidding again
+    await prisma.bookingBid.updateMany({
+      where: { bookingId },
+      data: { status: "PENDING" },
+    });
+    // Reject all pending bids
+    await prisma.bookingBid.updateMany({
+      where: { bookingId, driverId: driverId },
+      data: { status: "CANCELED" },
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Ride cancelled successfully.",
+      ride: cancelledRide,
+    });
+  } catch (error) {
+    console.error("Error cancelling active ride:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to cancel active ride.",
       error: error.message,
     });
   }
@@ -522,7 +547,6 @@ export const getMyFinishedRide = async (req, res) => {
       },
     });
 
-
     return res.status(200).json({
       success: true,
       rides: finishedRides,
@@ -532,6 +556,107 @@ export const getMyFinishedRide = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Failed to fetch finished rides",
+      error: error.message,
+    });
+  }
+};
+
+export const createBookingPayOrder = async (req, res) => {
+  try {
+    const { bookingId } = req.params;
+    const driverId = req.userId;
+
+    // Find the booking
+    const booking = await prisma.booking.findFirst({
+      where: { id: bookingId },
+      include: {
+        bids: {
+          where: {
+            status: "ACCEPTED",
+          },
+          orderBy: {
+            createdAt: "desc",
+          },
+          take: 1,
+        },
+      },
+    });
+
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message: "Booking not found for user.",
+      });
+    }
+
+    const acceptedBid =
+      booking.bids && booking.bids.length > 0 ? booking.bids[0] : null;
+    if (!acceptedBid) {
+      return res.status(400).json({
+        success: false,
+        message: "No accepted bid found for this booking.",
+      });
+    }
+
+    const bidAmount = Number(acceptedBid.amount);
+    if (!bidAmount || isNaN(bidAmount) || bidAmount <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid bid amount.",
+      });
+    }
+
+    // Suppose commission is 10% (adjust as needed)
+    const driverCommissionPercent = process.env.DRIVER_COMMISSION_PERCENT || 10;
+    const commissionAmount =
+      Math.round(bidAmount * driverCommissionPercent) / 100;
+    const driverCommissionPercentAmount = commissionAmount.toFixed(2);
+
+    console.log("driverCommissionPercentAmount", driverCommissionPercentAmount);
+    // Create the Razorpay order
+
+    // Try to find the user in your database (for customer_details in Razorpay order)
+    const user = await prisma.user.findUnique({
+      where: {
+        id: driverId,
+      },
+      select: {
+        name: true,
+        mobile: true,
+        email: true,
+      },
+    });
+
+    const order = await createRazorPayOrder({
+      amount: driverCommissionPercentAmount,
+      receipt: `booking_start_${bookingId}`,
+      notes: {
+        bookingId: bookingId || "",
+        customerId: driverId || "",
+        bidId: acceptedBid.id,
+        payAmount: driverCommissionPercentAmount,
+      },
+      customer_details: {
+        // Replace with actual user details if available in your user model/request
+        name: user?.name || "",
+        contact: user?.mobile || "",
+        email: user?.email || "",
+      },
+    });
+
+    return res.json({
+      success: true,
+      order,
+      bookingId,
+      bidId: acceptedBid.id,
+      bidAmount,
+      payAmount: driverCommissionPercentAmount,
+    });
+  } catch (error) {
+    console.error("Error creating Razorpay order for booking:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to create payment order.",
       error: error.message,
     });
   }

@@ -81,6 +81,7 @@ export const register = async (req, res) => {
     // Check if email or mobile already exists
     const existingUser = await prisma.user.findFirst({
       where: {
+        type: input.type,
         OR: [{ email: input.email }, { mobile: input.mobile }],
       },
     });
@@ -102,6 +103,7 @@ export const register = async (req, res) => {
     delete payload.confirm_password;
     delete payload.createdAt;
     delete payload.updatedAt;
+    payload.isVerified = true;
 
     const user = await prisma.user.create({ data: payload });
 
@@ -166,7 +168,7 @@ const sendVerificationEmail = async (to, token) => {
           </div>
           <p style="color:#888;font-size:13px;">
             If you did not create an account, please ignore this email.<br>
-            — ${process.env.APP_NAME} Team
+            — ${process.env.NEXT_PUBLIC_APP_NAME} Team
           </p>
         </div>
       </body>
@@ -187,7 +189,7 @@ export const sendMobileOTP = async (req, res) => {
     // Generate a 6-digit OTP
     const otp = String(Math.floor(100000 + Math.random() * 900000)).padStart(
       6,
-      "0"
+      "0",
     );
     mobileOtpStore[mobile] = otp;
     // TODO: Integrate with SMS gateway
@@ -235,7 +237,7 @@ export const sendEmailOTP = async (req, res) => {
     console.log("email", email);
     const otp = String(Math.floor(100000 + Math.random() * 900000)).padStart(
       6,
-      "0"
+      "0",
     );
     emailOtpStore[email] = otp;
 
@@ -307,7 +309,7 @@ export const forgotPassword = async (req, res) => {
         exp,
         type: "reset",
       },
-      process.env.JWT_SECRET
+      process.env.JWT_SECRET,
     );
 
     const resetLink = `${process.env.CLIENT_ORIGIN}/reset-password?token=${token}&email=${email}`;
@@ -340,7 +342,7 @@ export const forgotPassword = async (req, res) => {
             </div>
             <p style="color:#888;font-size:13px;">
               If you did not request this, please ignore this email.<br>
-              — ${process.env.APP_NAME} Team
+              — ${process.env.NEXT_PUBLIC_APP_NAME} Team
             </p>
           </div>
         </body>

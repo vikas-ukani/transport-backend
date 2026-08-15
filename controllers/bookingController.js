@@ -281,6 +281,83 @@ export const getBookingById = async (req, res) => {
   }
 };
 
+export const cancelBookingById = async (req, res) => {
+  const { id } = req.params;
+  const userId = req.userId;
+
+  try {
+    // Find booking and authorize in one step for efficiency
+    const booking = await prisma.booking.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        customerId: true,
+        assignedDriverUserId: true,
+        status: true,
+      },
+    });
+
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message: "Booking not found",
+      });
+    }
+
+    if (booking.customerId !== userId) {
+      return res.status(403).json({
+        success: false,
+        message: "You are not authorized to cancel this booking",
+      });
+    }
+
+    // Only allow cancel if not assigned OR status is one of allowed before start
+    const canCancel =
+      booking.assignedDriverUserId === null ||
+      ["OPEN", "PENDING", "CONFIRMED"].includes(booking.status);
+
+    if (!canCancel) {
+      return res.status(400).json({
+        success: false,
+        message: "This booking cannot be canceled at its current status.",
+      });
+    }
+
+    // Only update if not already canceled
+    if (booking.status === "CANCELED") {
+      return res.status(200).json({
+        success: true,
+        message: "Booking already canceled.",
+        booking,
+      });
+    }
+
+    const updatedBooking = await prisma.booking.update({
+      where: { id },
+      data: { status: "CANCELED" },
+      select: {
+        id: true,
+        status: true,
+        customerId: true,
+        assignedDriverUserId: true,
+      },
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Booking canceled successfully",
+      booking: updatedBooking,
+    });
+  } catch (error) {
+    console.error("Error canceling booking:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to cancel booking",
+      error: error?.message ?? error,
+    });
+  }
+};
+
 /**
  * Driver submits or updates a price bid (INR cents) for an open transport request.
  */
@@ -304,6 +381,8 @@ export const placeBookingBid = async (req, res) => {
       });
     }
 
+    // Set vehicle selection id from placing bid. Check first if truck available or not.
+    // If available then place bid
     const vehicle = await prisma.vehicle.findFirst({
       where: {
         ownerId: driverId,
@@ -359,7 +438,6 @@ export const placeBookingBid = async (req, res) => {
     // Check if driver has enough wallet balance before placing bid
     const driver = await prisma.user.findUnique({
       where: { id: driverId },
-      select: { walletAmount: true },
     });
 
     if (!driver) {
@@ -369,12 +447,6 @@ export const placeBookingBid = async (req, res) => {
       });
     }
 
-    if (driver.walletAmount == null || driver.walletAmount < amount) {
-      return res.status(400).json({
-        success: false,
-        message: "Insufficient wallet balance to place this bid.",
-      });
-    }
     let bid;
     if (existing) {
       bid = await prisma.bookingBid.update({

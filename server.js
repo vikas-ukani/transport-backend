@@ -1,10 +1,9 @@
 const PORT = process.env.PORT || 8080;
-
-import http from 'http';
 import { PrismaClient } from '@prisma/client';
+import http from 'http';
+import dotenv from 'dotenv';
 import app from './app.js';
 import { initSocket } from './socket/socket.js';
-import dotenv from 'dotenv';
 dotenv.config();
 
 const prisma = new PrismaClient();

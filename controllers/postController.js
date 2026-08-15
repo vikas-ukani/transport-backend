@@ -1,4 +1,5 @@
-import prisma from '../lib/prisma.js';
+import prisma from "../lib/prisma.js";
+import { createRazorPayOrder } from "../payments/razorpay.js";
 
 export const getAllVideos = async (req, res, next) => {
   try {
@@ -18,12 +19,12 @@ export const getAllVideos = async (req, res, next) => {
       where,
       skip,
       take: limit,
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
     });
 
     res.status(200).json({
       success: true,
-      message: 'Videos fetched successfully.',
+      message: "Videos fetched successfully.",
       data: videos,
       pagination: {
         total: totalVideos,
@@ -47,6 +48,10 @@ export const getAllPosts = async (req, res, next) => {
     // Build the query with userId and isActive = true
     const where = {
       isActive: true,
+      OR: [
+        { expiredAt: null }, // Not expired if expiredAt is not set
+        { expiredAt: { gt: new Date() } }, // Not expired if expiredAt is in the future
+      ],
     };
 
     // Fetch total count for pagination info
@@ -59,7 +64,7 @@ export const getAllPosts = async (req, res, next) => {
       where,
       skip,
       take: limit,
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
     });
     const newPosts = await Promise.all(
       posts.map(async (post) => {
@@ -70,12 +75,12 @@ export const getAllPosts = async (req, res, next) => {
         });
         post.images = images.length ? images : [];
         return post;
-      })
+      }),
     );
 
     res.status(200).json({
       success: true,
-      message: 'Posts fetched successfully.',
+      message: "Posts fetched successfully.",
       data: newPosts,
       pagination: {
         total: totalPosts,
@@ -85,7 +90,7 @@ export const getAllPosts = async (req, res, next) => {
       },
     });
   } catch (error) {
-    console.error('Error fetching posts:', error);
+    console.error("Error fetching posts:", error);
     res.status(500).json({
       success: false,
       message: error.message,
@@ -117,7 +122,7 @@ export const getMyPosts = async (req, res, next) => {
       where,
       skip,
       take: limit,
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
     });
     const newPosts = await Promise.all(
       posts.map(async (post) => {
@@ -128,12 +133,12 @@ export const getMyPosts = async (req, res, next) => {
         });
         post.images = images.length ? images : [];
         return post;
-      })
+      }),
     );
 
     res.status(200).json({
       success: true,
-      message: 'Posts fetched successfully.',
+      message: "Posts fetched successfully.",
       data: newPosts,
       pagination: {
         total: totalPosts,
@@ -143,7 +148,7 @@ export const getMyPosts = async (req, res, next) => {
       },
     });
   } catch (error) {
-    console.error('Error fetching posts:', error);
+    console.error("Error fetching posts:", error);
     res.status(500).json({
       success: false,
       message: error.message,
@@ -164,7 +169,7 @@ export const likePost = async (req, res, next) => {
     if (!post) {
       return res.status(404).json({
         success: false,
-        message: 'Post not found.',
+        message: "Post not found.",
       });
     }
 
@@ -178,7 +183,7 @@ export const likePost = async (req, res, next) => {
       updatedLikes.push(userId);
     }
 
-    console.log('updatedLikes', updatedLikes);
+    console.log("updatedLikes", updatedLikes);
     const updatedPost = await prisma.post.update({
       where: { id: postId },
       data: { likes: updatedLikes },
@@ -186,7 +191,7 @@ export const likePost = async (req, res, next) => {
 
     res.status(200).json({
       success: true,
-      message: 'Post like status updated successfully.',
+      message: "Post like status updated successfully.",
       data: updatedPost,
     });
   } catch (error) {
@@ -198,7 +203,14 @@ export const getPost = async (req, res, next) => {
   try {
     const postId = req.params.id;
     const post = await prisma.post.findUnique({
-      where: { id: postId },
+      where: {
+        id: postId,
+        OR: [
+          { expiredAt: null }, // Not expired if expiredAt is not set
+          { expiredAt: { gt: new Date() } }, // Not expired if expiredAt is in the future
+        ],
+      },
+
       include: {
         user: {
           select: {
@@ -231,17 +243,62 @@ export const getPost = async (req, res, next) => {
     if (!post) {
       return res.status(404).json({
         success: false,
-        message: 'Post not found.',
+        message: "Post not found.",
       });
     }
 
     res.status(200).json({
       success: true,
-      message: 'Post fetched successfully.',
+      message: "Post fetched successfully.",
       data: post,
     });
   } catch (error) {
     next(error);
+  }
+};
+
+export const createPostPayOrder = async (req, res) => {
+  try {
+    const userId = req.userId;
+
+    const POST_AMOUNT = parseFloat(process.env.CREATE_POST_PAYMENT || 100);
+
+    // Try to find the user in your database (for customer_details in Razorpay order)
+    const user = await prisma.user.findUnique({
+      where: {
+        id: userId,
+      },
+      select: {
+        name: true,
+        mobile: true,
+        email: true,
+      },
+    });
+
+    const order = await createRazorPayOrder({
+      amount: POST_AMOUNT,
+      receipt: `post_${userId}`,
+      notes: {
+        userId: userId || "",
+        payAmount: POST_AMOUNT,
+      },
+      customer_details: {
+        name: user?.name || "",
+        contact: user?.mobile || "",
+        email: user?.email || "",
+      },
+    });
+    return res.json({
+      success: true,
+      order,
+      payAmount: POST_AMOUNT,
+    });
+  } catch (e) {
+    console.log("e.message", e.message);
+    return res.json({
+      success: false,
+      message: e.message,
+    });
   }
 };
 
@@ -255,20 +312,21 @@ export const createPost = async (req, res, next) => {
 
     // TODO set false after live
     postData.isActive = true;
+    postData.expiredAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
     const createdPost = await prisma.post.create({
       data: postData,
     });
 
     res.status(201).json({
       success: true,
-      message: 'Post created successfully.',
+      message: "Post created successfully.",
       data: createdPost,
     });
   } catch (e) {
     console.error(`Error creating post: ${e}`);
     res.status(500).json({
       success: false,
-      message: 'An error occurred while creating the post.',
+      message: "An error occurred while creating the post.",
       error: e.message || e,
     });
   }
@@ -287,15 +345,15 @@ export const updatePost = async (req, res, next) => {
     if (!existingPost) {
       return res.status(404).json({
         success: false,
-        message: 'Post not available.',
+        message: "Post not available.",
       });
     }
 
     // Only permit specific fields to be updated
     const { title, content, imageIds } = req.body;
     const updateData = {};
-    if (typeof title === 'string') updateData.title = title;
-    if (typeof content === 'string') updateData.content = content;
+    if (typeof title === "string") updateData.title = title;
+    if (typeof content === "string") updateData.content = content;
     if (Array.isArray(imageIds)) updateData.imageIds = imageIds;
 
     const updatedPost = await prisma.post.update({
@@ -305,7 +363,7 @@ export const updatePost = async (req, res, next) => {
 
     res.status(200).json({
       success: true,
-      message: 'Post updated successfully.',
+      message: "Post updated successfully.",
       data: updatedPost,
     });
   } catch (error) {
@@ -326,7 +384,7 @@ export const deletePost = async (req, res, next) => {
     if (!existingPost) {
       return res.status(404).json({
         success: false,
-        message: 'Post not found or not authorized.',
+        message: "Post not found or not authorized.",
       });
     }
     // Soft delete: set isActive to false and delete associated images
@@ -344,7 +402,7 @@ export const deletePost = async (req, res, next) => {
 
     res.status(200).json({
       success: true,
-      message: 'Post deleted successfully.',
+      message: "Post deleted successfully.",
     });
   } catch (error) {
     res.status(400).json({

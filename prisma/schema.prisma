@@ -50,7 +50,6 @@ model User {
   socketId String? // For real-time tracking and notifications (websocket support)
   deviceId String? // Mobile device id (for push notifications, tracking, etc.)
 
-  walletAmount      Float?              @default(0)
   walletTopups      WalletTopup[]
   walletTransaction WalletTransaction[] // Add this line to fix the error
   counterparty      WalletTransaction[] @relation("WalletCounterparty")
@@ -71,8 +70,11 @@ model Post {
   imageIds    String[]
   likes       String[]
   publishedAt DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+
+  razorpay_payment_id String?
+  expiredAt           DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 }
 
 model Media {
@@ -132,7 +134,7 @@ model Vehicle {
 }
 
 model Driver {
-  id            String  @id @map("_id")
+  id            String  @id @default(auto()) @map("_id") @db.ObjectId
   driverId      String  @unique // Unique identifier for the driver (could be employee or internal code)
   name          String
   contact       String // Contact information (e.g., mobile number)
@@ -148,7 +150,7 @@ model Driver {
   updatedAt DateTime @updatedAt
 
   // Relation: Driver belongs to a User (i.e., the owner/creator of the driver)
-  userId String @unique
+  userId String @unique @db.ObjectId
   user   User   @relation(fields: [userId], references: [id])
 
   bookings Booking[]
@@ -176,8 +178,9 @@ model Booking {
   customerId String @db.ObjectId
   owner      User   @relation(fields: [customerId], references: [id])
 
-  driverId String? @db.ObjectId
-  driver   Driver? @relation(fields: [driverId], references: [id])
+  paymentId String?
+  driverId  String? @db.ObjectId
+  driver    Driver? @relation(fields: [driverId], references: [id])
 
   // Shipment details
   fromAddress   String

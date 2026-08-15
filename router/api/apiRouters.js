@@ -1,7 +1,7 @@
 import { Router } from "express";
-
 import { getMe } from "../../controllers/authController.js";
 import {
+    cancelBookingById,
     createBooking,
     deleteBooking,
     getBidsForBooking,
@@ -17,6 +17,7 @@ import {
 } from "../../controllers/notificationController.js";
 import {
     createPost,
+    createPostPayOrder,
     deletePost,
     getAllPosts,
     getAllVideos,
@@ -27,6 +28,8 @@ import {
 } from "../../controllers/postController.js";
 import {
     acceptBookingBid,
+    cancelMyActiveRide,
+    createBookingPayOrder,
     getMyActiveRide,
     getMyFinishedRide,
     regenerateBookingOtp,
@@ -45,15 +48,9 @@ import {
     updateVehicle,
 } from "../../controllers/vehicleController.js";
 import {
-    createWallet,
-    createWalletOrder,
-    getWalletBalance,
-    getWalletDetails,
-    getWalletStatement,
-    successWalletTopUp,
-    topupWallet,
-    withdrawWalletToBank,
-} from "../../controllers/walletController.js";
+    verifyBookingPayment,
+    verifyPayment,
+} from "../../controllers/paymentController.js";
 import { validateRequest } from "../../lib/validateRequest.js";
 import { apiMiddleware } from "../../middlewares/authMiddleware.js";
 import {
@@ -71,12 +68,13 @@ const apiRouters = Router();
 apiRouters.use(apiMiddleware);
 
 apiRouters.get("/me", getMe);
-
 apiRouters.route("/videos").get(getAllVideos);
 apiRouters
   .route("/posts")
   .get(getAllPosts)
   .post(validateRequest(createPostSchema), createPost);
+apiRouters.get("/create-post-pay-order", createPostPayOrder);
+apiRouters.post("/verify-payment", verifyPayment);
 apiRouters.get("/my-posts", getMyPosts);
 apiRouters
   .route("/posts/:id", apiMiddleware)
@@ -84,7 +82,6 @@ apiRouters
   .put(validateRequest(createPostSchema), updatePost)
   .delete(deletePost);
 apiRouters.get("/like-post/:id", likePost);
-//   .post(validateRequest(createPostSchema), createPost);
 
 // vehicles routes
 apiRouters
@@ -105,6 +102,7 @@ apiRouters
   .get(getMyBookings)
   .post(validateRequest(CreateBookingSchema), createBooking);
 apiRouters.route("/booking/:id").get(getBookingById).delete(deleteBooking);
+apiRouters.get("/cancel-booking/:id/", cancelBookingById);
 apiRouters.post(
   "/booking/:id/bids",
   validateRequest(placeBookingBidSchema),
@@ -116,18 +114,10 @@ apiRouters.get("/booking/:id/regenerate-otp", regenerateBookingOtp);
 apiRouters.get("/booking/:id/bids", getBidsForBooking);
 apiRouters.get("/driver-rides", getDriverRides);
 apiRouters.get("/my-running-rides", getMyActiveRide);
+apiRouters.get("/cancel-active-ride/:id", cancelMyActiveRide);
 apiRouters.get("/my-finished-rides", getMyFinishedRide);
-// apiRouters.post("/driver-ride-bid/:bookingId", updateBookingRideBid);
-
-// Wallet
-apiRouters.post("/create-wallet-order", createWalletOrder);
-apiRouters.post("/success-wallet-topup", successWalletTopUp);
-apiRouters.get("/wallet-balance", getWalletBalance);
-apiRouters.get("/wallet-create", createWallet);
-apiRouters.post("/wallet-topup", topupWallet);
-apiRouters.post("/wallet-detils", getWalletDetails);
-apiRouters.post("/wallet-statements", getWalletStatement);
-apiRouters.post("/wallet-withdraw", withdrawWalletToBank);
+apiRouters.get("/create-booking-pay-order/:bookingId", createBookingPayOrder);
+apiRouters.post("/verify-booking-payment/:bookingId", verifyBookingPayment);
 
 // Notifications routes
 apiRouters.get("/notifications", getNotificationsByUserId);
