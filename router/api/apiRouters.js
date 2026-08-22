@@ -48,6 +48,7 @@ import {
     updateVehicle,
 } from "../../controllers/vehicleController.js";
 import {
+    createGaragePayOrder,
     verifyBookingPayment,
     verifyPayment,
 } from "../../controllers/paymentController.js";
@@ -60,6 +61,7 @@ import {
     RegisterVehicleSchema,
     UpdateVehicleSchema,
 } from "../../schema/apiSchema.js";
+import { createGarage, deleteGarageById, getCreateGarageAmount, getGarageById, getMyGarages, getNearByGarages, updateGarage } from "../../controllers/garageController.js";
 
 // API ////   ---------
 
@@ -123,5 +125,18 @@ apiRouters.post("/verify-booking-payment/:bookingId", verifyBookingPayment);
 apiRouters.get("/notifications", getNotificationsByUserId);
 apiRouters.patch("/notifications/:id/read", markNotificationAsRead);
 apiRouters.patch("/notifications/read-all", markAllNotificationsAsRead);
+
+
+// GARAGEs
+apiRouters.get("/get-create-garage-amount", getCreateGarageAmount);
+apiRouters.get("/get-nearby-garages", getNearByGarages);
+apiRouters.get("/my-garages", getMyGarages);
+apiRouters.get("/garage/:id", getGarageById);
+apiRouters.post("/create-garages", createGarage);
+apiRouters.put("/update-garage/:id", updateGarage);
+apiRouters.delete("/delete-garage/:id", deleteGarageById);
+apiRouters.get("/create-garage-pay-order", createGaragePayOrder);
+ 
+
 
 export default apiRouters;

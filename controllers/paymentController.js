@@ -1,6 +1,53 @@
-
 import crypto from "crypto";
 import prisma from "../lib/prisma.js";
+import { createRazorPayOrder } from "../payments/razorpay.js";
+
+export const createGaragePayOrder = async (req, res) => {
+  try {
+    const userId = req.userId;
+
+    const setting = await prisma.systemSetting.findFirst();
+
+    const PAY_AMOUNT = setting.garageCreateAmount;
+
+    // Try to find the user in your database (for customer_details in Razorpay order)
+    const user = await prisma.user.findUnique({
+      where: {
+        id: userId,
+      },
+      select: {
+        name: true,
+        mobile: true,
+        email: true,
+      },
+    });
+
+    const order = await createRazorPayOrder({
+      amount: PAY_AMOUNT,
+      receipt: `garage_${userId}`,
+      notes: {
+        userId: userId || "",
+        payAmount: PAY_AMOUNT,
+      },
+      customer_details: {
+        name: user?.name || "",
+        contact: user?.mobile || "",
+        email: user?.email || "",
+      },
+    });
+    return res.json({
+      success: true,
+      order,
+      payAmount: PAY_AMOUNT,
+    });
+  } catch (e) {
+    console.log("e.message", e.message);
+    return res.json({
+      success: false,
+      message: e.message,
+    });
+  }
+};
 
 export const verifyPayment = async (req, res) => {
   try {

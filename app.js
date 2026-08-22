@@ -102,4 +102,40 @@ app.use((err, req, res, next) => {
   res.status(500).send(`Something broke! ${err.message}`);
 });
 
+export async function setupSystemSettings() {
+  try {
+    const CREATE_POST_AMOUNT = process.env.CREATE_POST_AMOUNT || 300;
+    const DRIVER_COMMISSION_PERCENT =
+      process.env.DRIVER_COMMISSION_PERCENT || 10;
+    const GARAGE_PAYMENT = process.env.GARAGE_PAYMENT || 300;
+
+    if (!prisma?.systemSetting?.findMany) {
+      throw new Error(
+        "Prisma client not properly instantiated or systemSetting model not found.",
+      );
+    }
+
+    const systemSetting = await prisma.systemSetting.findMany({
+      orderBy: {
+        id: "desc",
+      },
+      take: 1,
+    });
+
+    if (systemSetting.length === 0) {
+      await prisma.systemSetting.create({
+        data: {
+          createPostAmount: parseInt(CREATE_POST_AMOUNT, 10),
+          rideCommissionPercentage: parseInt(DRIVER_COMMISSION_PERCENT, 10),
+          garageCreateAmount: parseInt(GARAGE_PAYMENT, 10),
+        },
+      });
+    } else {
+      console.log("SYSTEM SETTINGS IS UP TO DATE...");
+    }
+  } catch (error) {
+    console.log("Got Error on SETUP", error.message);
+  }
+}
+
 export default app;

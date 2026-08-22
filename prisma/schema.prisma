@@ -56,6 +56,7 @@ model User {
   driver            Driver?
   bids              BookingBid[]
   vehicles          Vehicle[]
+  garages           Garage[]
 }
 
 model Post {
@@ -320,4 +321,34 @@ model WalletTransaction {
   @@index([counterpartyId])
   @@index([type])
   @@index([referenceId])
+}
+
+/// Table for global system/application settings, holding master config values
+model SystemSetting {
+  id                       String   @id @default(auto()) @map("_id") @db.ObjectId
+  createPostAmount         Int      @default(100) // Default (in INR paise, i.e. 100 = ₹1)
+  rideCommissionPercentage Float    @default(10.0) // Default ride commission in percent
+  garageCreateAmount       Int      @default(500) // Default garage creation charge (in INR paise)
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+}
+
+model Garage {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId       String   @db.ObjectId
+  user         User     @relation(fields: [userId], references: [id])
+  name         String
+  mobile       String
+  latitude     Float
+  longitude    Float
+  address      String
+  paymentId    String?
+  images       String[] // Array of image URLs or paths
+  ownerAadhaar String // Aadhaar card document (file URL or identifier)
+  types        String[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  isVerified   Boolean  @default(false)
+
+  @@index([latitude, longitude])
 }
