@@ -78,6 +78,7 @@ export const createPostSchema = Joi.object({
   razorpay_payment_id: Joi.string().optional().allow(null).messages({
     "string.base": "Razorpay Payment ID must be a string.",
   }),
+  expiredAt: Joi.date().optional().messages(),
 });
 
 export const RegisterVehicleSchema = Joi.object({

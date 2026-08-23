@@ -97,22 +97,23 @@ model Video {
 }
 
 model Vehicle {
-  id            String   @id @default(auto()) @map("_id") @db.ObjectId
-  driverName    String?
-  mobileNumber  String?
-  rcNumber      String   @unique // Registration number, e.g., 'MH12AB1234'
-  vehicleNumber String? // Registration number, e.g., 'MH12AB1234'
-  rcPhotos      String[] // Photos URL of RC Book
-  truckType     String // e.g., 'Flatbed', can be further normalized
-  bodyType      String? // e.g., 'Open Body'
-  truckLength   String? // e.g., '20 ft'
-  truckHeight   String? // e.g., '8 ft'
-  loadCapacity  String? // e.g., '10 tons'
-  traveledInKM  String?  @default("0.0") // e.g., '125,000 Km'
-  rating        Float?   @default(0.0) // e.g., 4.7
-  status        String   @default("pending") // e.g., 'verified', 'pending', 'inactive'
-  imageIds      String[]
-  isAvailable   Boolean? @default(true)
+  id                     String   @id @default(auto()) @map("_id") @db.ObjectId
+  driverName             String?
+  mobileNumber           String?
+  rcNumber               String   @unique // Registration number, e.g., 'MH12AB1234'
+  vehicleNumber          String? // Registration number, e.g., 'MH12AB1234'
+  rcPhotos               String[] // Photos URL of RC Book
+  truckType              String // e.g., 'Flatbed', can be further normalized
+  bodyType               String? // e.g., 'Open Body'
+  truckLength            String? // e.g., '20 ft'
+  truckHeight            String? // e.g., '8 ft'
+  loadCapacity           String? // e.g., '10 tons'
+  traveledInKM           String?  @default("0.0") // e.g., '125,000 Km'
+  rating                 Float?   @default(0.0) // e.g., 4.7
+  status                 String   @default("pending") // e.g., 'verified', 'pending', 'inactive'
+  statusRejectionMessage String?  @default("") // Message explaining why vehicle was rejected (optional, defaults to null)
+  imageIds               String[]
+  isAvailable            Boolean? @default(true)
 
   ownerId String? @db.ObjectId
   owner   User?   @relation(fields: [ownerId], references: [id])

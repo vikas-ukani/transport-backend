@@ -205,12 +205,11 @@ export const getPost = async (req, res, next) => {
     const post = await prisma.post.findUnique({
       where: {
         id: postId,
-        OR: [
-          { expiredAt: null }, // Not expired if expiredAt is not set
-          { expiredAt: { gt: new Date() } }, // Not expired if expiredAt is in the future
-        ],
+        // OR: [
+        //   { expiredAt: null }, // Not expired if expiredAt is not set
+        //   { expiredAt: { gt: new Date() } }, // Not expired if expiredAt is in the future
+        // ],
       },
-
       include: {
         user: {
           select: {
@@ -222,6 +221,7 @@ export const getPost = async (req, res, next) => {
       },
     });
 
+    console.log("post", post);
     // Fetch images from media table for the imageIds of this post
     let images = [];
     if (
@@ -350,10 +350,11 @@ export const updatePost = async (req, res, next) => {
     }
 
     // Only permit specific fields to be updated
-    const { title, content, imageIds } = req.body;
+    const { title, content, imageIds, expiredAt } = req.body;
     const updateData = {};
     if (typeof title === "string") updateData.title = title;
     if (typeof content === "string") updateData.content = content;
+    if (typeof expiredAt === "string") updateData.expiredAt = expiredAt;
     if (Array.isArray(imageIds)) updateData.imageIds = imageIds;
 
     const updatedPost = await prisma.post.update({
