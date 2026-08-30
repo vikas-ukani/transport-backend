@@ -50,13 +50,32 @@ model User {
   socketId String? // For real-time tracking and notifications (websocket support)
   deviceId String? // Mobile device id (for push notifications, tracking, etc.)
 
-  walletTopups      WalletTopup[]
-  walletTransaction WalletTransaction[] // Add this line to fix the error
-  counterparty      WalletTransaction[] @relation("WalletCounterparty")
-  driver            Driver?
-  bids              BookingBid[]
-  vehicles          Vehicle[]
-  garages           Garage[]
+  driver              Driver?
+  bids                BookingBid[]
+  vehicles            Vehicle[]
+  garages             Garage[]
+  paymentTransactions PaymentTransaction[]
+  // Ratings given to this user
+  userRatings         UserRating[]
+
+  // Ratings given by this user
+  givenRatings UserRating[] @relation("GivenRatings")
+}
+
+model UserRating {
+  id      String  @id @default(auto()) @map("_id") @db.ObjectId
+  rating  Float // Rating value given (e.g. 1-5)
+  comment String? // Optional review comment
+  userId  String  @db.ObjectId // The user who is being rated
+  user    User    @relation(fields: [userId], references: [id])
+
+  bookingId String?  @db.ObjectId // Optionally link this rating to a specific booking
+  booking   Booking? @relation(fields: [bookingId], references: [id])
+
+  givenById String   @db.ObjectId // The user who gave the rating
+  givenBy   User     @relation("GivenRatings", fields: [givenById], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Post {
@@ -74,8 +93,9 @@ model Post {
 
   razorpay_payment_id String?
   expiredAt           DateTime?
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  paymentTransactions PaymentTransaction[]
 }
 
 model Media {
@@ -199,15 +219,18 @@ model Booking {
   truckHeight  String?
   loadCapacity String?
 
-  otpCode String? // Verify during complete ride
+  startRideOTP         String? // Verify during complete ride
+  startRideOTPVerified Boolean? @default(false)
+
+  endRideOTP         String? // Verify during complete ride
+  endRideOTPVerified Boolean? @default(false)
 
   // Pricing & Payment
   estimatedKm        String? // Estimated distance in kilometers for the booking
   paymentStatus      String  @default("Unpaid") // e.g., "Paid", "Pending", "Failed"
   paymentAmountCents Int? // Agreed total (cents) after bid accept; charged from wallet when paid
 
-  finalAmount     String?
-  remainingAmount String?
+  finalAmount String?
 
   // Transport bidding (drivers submit prices; customer accepts one)
   biddingOpen          Boolean @default(true)
@@ -221,8 +244,11 @@ model Booking {
   updatedAt   DateTime  @updatedAt
 
   bids      BookingBid[]
-  vehicle   Vehicle?     @relation(fields: [vehicleId], references: [id])
-  vehicleId String?      @db.ObjectId
+  payments  PaymentTransaction[]
+  vehicle   Vehicle?             @relation(fields: [vehicleId], references: [id])
+  vehicleId String?              @db.ObjectId
+
+  userRatings UserRating[]
 }
 
 model BookingBid {
@@ -276,41 +302,30 @@ model Notification {
   updatedAt DateTime @updatedAt
 }
 
-model WalletTopup {
-  id              String   @id @default(auto()) @map("_id") @db.ObjectId
-  userId          String   @db.ObjectId
-  user            User     @relation(fields: [userId], references: [id])
-  amount          Int
-  currency        String   @default("inr")
-  status          String   @default("pending")
-  remark          String
-  cashFreeOrderId String
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
-  @@index([userId, createdAt])
-}
-
-/// Model to track all wallet transactions, including credit and debit between users
-model WalletTransaction {
+/// Model to track all payment transactions
+model PaymentTransaction {
   id String @id @default(auto()) @map("_id") @db.ObjectId
 
   /// The user whose wallet this transaction affects (could be driver or customer)
   userId String @db.ObjectId
   user   User   @relation(fields: [userId], references: [id]) // single relation, not duplicate
 
-  /// If applicable, counterparty user (for P2P transfers, e.g. payment from customer to driver)
-  counterpartyId String? @db.ObjectId
-  counterparty   User?   @relation("WalletCounterparty", fields: [counterpartyId], references: [id])
-  amount         Int
-  type           String /// "credit" | "debit"
-  purpose        String /// Reason, e.g. "topup", "withdraw", "ride_payment", "refund", etc.
-  currency       String  @default("inr")
+  bookingId String?  @db.ObjectId
+  booking   Booking? @relation(fields: [bookingId], references: [id])
 
-  referenceId String?
+  postId String? @db.ObjectId
+  post   Post?   @relation(fields: [postId], references: [id])
 
-  /// Transaction status
-  status String @default("completed") // "pending", "failed", "completed"
+  garageId String? @db.ObjectId
+  garage   Garage? @relation(fields: [garageId], references: [id])
+
+  amount   Int
+  currency String @default("inr")
+
+  purpose   String /// Reason, e.g. "topup", "withdraw", "ride_payment", "refund", etc.
+  orderId   String?
+  paymentId String?
+  status    String  @default("completed") // "pending", "failed", "completed"
 
   /// Free-form description
   description String?
@@ -318,20 +333,7 @@ model WalletTransaction {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([userId, createdAt])
-  @@index([counterpartyId])
-  @@index([type])
-  @@index([referenceId])
-}
-
-/// Table for global system/application settings, holding master config values
-model SystemSetting {
-  id                       String   @id @default(auto()) @map("_id") @db.ObjectId
-  createPostAmount         Int      @default(100) // Default (in INR paise, i.e. 100 = ₹1)
-  rideCommissionPercentage Float    @default(10.0) // Default ride commission in percent
-  garageCreateAmount       Int      @default(500) // Default garage creation charge (in INR paise)
-  createdAt                DateTime @default(now())
-  updatedAt                DateTime @updatedAt
+  @@index([userId, paymentId])
 }
 
 model Garage {
@@ -347,9 +349,49 @@ model Garage {
   images       String[] // Array of image URLs or paths
   ownerAadhaar String // Aadhaar card document (file URL or identifier)
   types        String[]
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  isVerified   Boolean  @default(false)
+
+  isVerified          Boolean              @default(false)
+  paymentTransactions PaymentTransaction[]
+
+  expiredAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
   @@index([latitude, longitude])
+}
+
+model SystemSetting {
+  id                       String   @id @default(auto()) @map("_id") @db.ObjectId
+  createPostAmount         Int      @default(100) // Default (in INR paise, i.e. 100 = ₹1)
+  rideCommissionPercentage Float    @default(10.0) // Default ride commission in percent
+  garageCreateAmount       Int      @default(500) // Default garage creation charge (in INR paise)
+  garageExpireInDays       Int      @default(90) // Default garage creation charge (in INR paise)
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+}
+
+// TRUCK TON, LENGTH, FEET
+model TruckSpecification {
+  id               String              @id @default(auto()) @map("_id") @db.ObjectId
+  tonLimit         Int                 @unique
+  lengthRangeLabel String
+  lengths          TruckLengthOption[]
+}
+
+model TruckLengthOption {
+  id     String             @id @default(auto()) @map("_id") @db.ObjectId
+  feet   Int
+  specId String             @db.ObjectId
+  spec   TruckSpecification @relation(fields: [specId], references: [id], onDelete: Cascade)
+
+  heights TruckHeightOption[]
+
+  @@unique([specId, feet]) // Prevents duplicate configurations per weight group
+}
+
+model TruckHeightOption {
+  id       String            @id @default(auto()) @map("_id") @db.ObjectId
+  heightFt Float
+  lengthId String            @db.ObjectId
+  length   TruckLengthOption @relation(fields: [lengthId], references: [id], onDelete: Cascade)
 }

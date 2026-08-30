@@ -35,6 +35,18 @@ export const createGaragePayOrder = async (req, res) => {
         email: user?.email || "",
       },
     });
+
+    await prisma.paymentTransaction.create({
+      data: {
+        amount: Number(PAY_AMOUNT),
+        status: "PENDING",
+        userId: userId,
+        purpose: order.receipt,
+        paymentId: null,
+        orderId: order.id,
+      },
+    });
+
     return res.json({
       success: true,
       order,
@@ -65,6 +77,21 @@ export const verifyPayment = async (req, res) => {
     if (razorpay_signature === expectedSign) {
       // Update the booking record with the razorpay_payment_id in paymentId field
 
+      // Find the related PaymentTransaction by orderId, update if found
+      const paymentTxn = await prisma.paymentTransaction.findFirst({
+        where: { orderId: razorpay_order_id, status: "PENDING" },
+      });
+
+      if (paymentTxn) {
+        await prisma.paymentTransaction.update({
+          where: { id: paymentTxn.id },
+          data: {
+            paymentId: razorpay_payment_id,
+            status: "SUCCESS",
+          },
+        });
+      }
+
       res.status(200).json({
         success: true,
         data: {
@@ -76,7 +103,7 @@ export const verifyPayment = async (req, res) => {
     } else {
       res.status(400).json({
         success: false,
-        message: "Invalid signature, payment verification failed",
+        message: "Payment has been failed.",
       });
     }
   } catch (error) {
@@ -111,6 +138,20 @@ export const verifyBookingPayment = async (req, res) => {
           paymentId: razorpay_payment_id,
         },
       });
+      // Find the related PaymentTransaction by orderId, update if found
+      const paymentTxn = await prisma.paymentTransaction.findFirst({
+        where: { orderId: razorpay_order_id, status: "PENDING", bookingId },
+      });
+
+      if (paymentTxn) {
+        await prisma.paymentTransaction.update({
+          where: { id: paymentTxn.id },
+          data: {
+            paymentId: razorpay_payment_id,
+            status: "SUCCESS",
+          },
+        });
+      }
 
       res
         .status(200)

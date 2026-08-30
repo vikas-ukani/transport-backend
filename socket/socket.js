@@ -17,8 +17,8 @@
  *   - vehicle:location  (broadcast to vehicle subscribers)
  *   - driver:location   (broadcast to driver subscribers)
  */
-import { Server } from "socket.io";
 import jwt from "jsonwebtoken";
+import { Server } from "socket.io";
 import prisma from "../lib/prisma.js";
 
 /** @type {import("socket.io").Server} */
@@ -88,7 +88,8 @@ export function initSocket(httpServer, options = {}) {
 
     // Store mappings for notifications and lookups
     socketIdToMeta.set(socketId, { userId, deviceId });
-    if (!userIdToSocketIds.has(userId)) userIdToSocketIds.set(userId, new Set());
+    if (!userIdToSocketIds.has(userId))
+      userIdToSocketIds.set(userId, new Set());
     userIdToSocketIds.get(userId).add(socketId);
     if (deviceId) deviceIdToSocketId.set(deviceId, socketId);
 
@@ -103,7 +104,10 @@ export function initSocket(httpServer, options = {}) {
         data: { socketId, deviceId: deviceId || undefined },
       });
     } catch (e) {
-      console.warn("Socket: could not update user socketId/deviceId", e.message);
+      console.warn(
+        "Socket: could not update user socketId/deviceId",
+        e.message,
+      );
     }
 
     // Emit connection success with socketId and deviceId to the client (React Native)
@@ -118,7 +122,9 @@ export function initSocket(httpServer, options = {}) {
       const { vehicleId, latitude, longitude, address, timestamp } =
         payload || {};
       if (!vehicleId || latitude == null || longitude == null) {
-        socket.emit("error", { message: "vehicleId, latitude, longitude required" });
+        socket.emit("error", {
+          message: "vehicleId, latitude, longitude required",
+        });
         return;
       }
       const data = {
@@ -132,9 +138,6 @@ export function initSocket(httpServer, options = {}) {
       io.to(`vehicle:${vehicleId}`).emit("vehicle:location", data);
       socket.emit("vehicle:location:ack", data);
     });
-
-
-    
 
     // Join vehicle room so this socket receives location updates for that vehicle
     socket.on("vehicle:subscribe", (vehicleId) => {
@@ -209,7 +212,7 @@ export function getIo() {
  */
 export function getSocketIdAndDeviceId(userId) {
   const set = userIdToSocketIds.get(String(userId));
-  const socketId = set ? Array.from(set)[0] ?? null : null;
+  const socketId = set ? (Array.from(set)[0] ?? null) : null;
   const meta = socketId ? socketIdToMeta.get(socketId) : null;
   return {
     socketId: socketId || null,
@@ -233,6 +236,11 @@ export function sendNotificationToUser(userId, payload) {
  * @param {object} payload
  */
 export function sendNotificationToDevice(deviceId, payload) {
+  if (!io) return;
+  io.to(`device:${deviceId}`).emit("notification:new", payload);
+}
+
+export function updateBookingDetails(deviceId, payload) {
   if (!io) return;
   io.to(`device:${deviceId}`).emit("notification:new", payload);
 }
@@ -263,6 +271,7 @@ export function broadcastDriverLocation(driverId, data) {
 export function emitToBookingRoom(bookingId, event, payload) {
   if (!io || !bookingId) return;
   io.to(`booking:${bookingId}`).emit(event, payload);
+  io.emit(event, payload);
 }
 
 /** Broadcast to every connected client (drivers + customers). */

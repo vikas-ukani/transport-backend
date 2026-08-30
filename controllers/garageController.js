@@ -295,6 +295,7 @@ export const createGarage = async (req, res) => {
       images,
       ownerAadhaar,
       types,
+      paymentId,
     } = req.body;
     const userId = req.userId;
     // Basic validation (could be expanded)
@@ -325,13 +326,33 @@ export const createGarage = async (req, res) => {
       ownerAadhaar,
       types,
       userId,
+      paymentId,
     };
 
-    console.log("garageData", garageData);
+    // fallback to 90 days if not found
+    const expiryDays =
+      (await prisma.systemSetting.findFirst())?.garageExpireInDays || 90;
+    expiredAt = Date(new Date().getTime() + expiryDays * 24 * 60 * 60 * 1000);
 
     const garage = await prisma.garage.create({
-      data: garageData,
+      data: {
+        ...garageData,
+        // Set expiredAt by adding expiry days from SystemSetting to now
+        expiredAt: expiredAt,
+      },
     });
+    // Find the payment transaction by paymentId and status, and update the garageId
+    if (paymentId) {
+      await prisma.paymentTransaction.updateMany({
+        where: {
+          paymentId: paymentId,
+          status: "SUCCESS",
+        },
+        data: {
+          garageId: garage.id,
+        },
+      });
+    }
 
     return res.status(201).json({
       success: true,

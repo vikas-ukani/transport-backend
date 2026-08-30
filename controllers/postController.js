@@ -288,6 +288,18 @@ export const createPostPayOrder = async (req, res) => {
         email: user?.email || "",
       },
     });
+
+    await prisma.paymentTransaction.create({
+      data: {
+        amount: Number(POST_AMOUNT),
+        status: "PENDING",
+        userId: userId,
+        purpose: order.receipt,
+        paymentId: null,
+        orderId: order.id,
+      },
+    });
+
     return res.json({
       success: true,
       order,
@@ -316,6 +328,18 @@ export const createPost = async (req, res, next) => {
     const createdPost = await prisma.post.create({
       data: postData,
     });
+
+    if (postData.razorpay_payment_id) {
+      await prisma.paymentTransaction.updateMany({
+        where: {
+          paymentId: postData.razorpay_payment_id,
+          status: "SUCCESS",
+        },
+        data: {
+          postId: createdPost.id,
+        },
+      });
+    }
 
     res.status(201).json({
       success: true,

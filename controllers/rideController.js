@@ -1,6 +1,6 @@
 import prisma from "../lib/prisma.js";
-import { emitToBookingRoom, sendNotificationToUser } from "../socket/socket.js";
 import { createRazorPayOrder } from "../payments/razorpay.js";
+import { emitToBookingRoom, sendNotificationToUser } from "../socket/socket.js";
 const PARTIAL_AMOUNT_TO_CUT = 50;
 
 /**
@@ -134,7 +134,7 @@ export const acceptBookingBid = async (req, res) => {
     });
 
     try {
-      emitToBookingRoom(bookingId, "booking:bid_accepted", {
+      emitToBookingRoom(bookingId, `booking:${bookingId}`, {
         bookingId,
         bidId,
         booking: updated,
@@ -166,11 +166,11 @@ export const acceptBookingBid = async (req, res) => {
 
 /**
  * Verifies the OTP code for completing a ride (delivery).
- * Expects: req.params.id (bookingId), req.params.otp (otpCode, as string)
+ * Expects: req.params.id (bookingId), req.params.otp (endRideOTP, as string)
  * Returns: { success: boolean, message?: string }
  */
 export const verifyCompleteRide = async (req, res) => {
-  const { id: bookingId, otp: otpCode } = req.params;
+  const { id: bookingId, otp: otpCode, type } = req.params;
 
   if (!bookingId || !otpCode) {
     return res.status(400).json({
@@ -208,23 +208,31 @@ export const verifyCompleteRide = async (req, res) => {
       });
     }
 
-    if (!booking.otpCode) {
+    if (type === "start" && !booking.startRideOTP) {
       return res.status(400).json({
         success: false,
-        message: "No OTP is set for this booking. Ask them to create new one.",
+        message:
+          "No start OTP is set for this booking. Please request a new OTP.",
+      });
+    }
+    if (type === "end" && !booking.endRideOTP) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "No end OTP is set for this booking. Please request a new OTP.",
       });
     }
 
-    // Make sure OTP matches exactly (string/number safe)
-    if (booking.otpCode.toString() !== otpCode.toString()) {
+    // Check OTP based on type (start/end)
+    if (
+      (type === "start" &&
+        booking.startRideOTP.toString() !== otpCode.toString()) ||
+      (type === "end" && booking.endRideOTP.toString() !== otpCode.toString())
+    ) {
       return res.status(400).json({
         success: false,
         message: "Invalid OTP code. Please use correct OTP",
       });
-    }
-
-    if (!booking) {
-      throw new Error("Booking not found.");
     }
 
     const acceptedBid = booking.bids[0];
@@ -246,63 +254,38 @@ export const verifyCompleteRide = async (req, res) => {
       throw new Error("Driver or customer record not found.");
     }
 
-    // Calculate the remaining payment amount (already paid 50% on bid accept, so pay the rest now)
-    const totalAmountCents = Number(
-      acceptedBid.amount || booking.paymentAmountCents,
-    );
-    const initialPaid = Math.floor(
-      (totalAmountCents * PARTIAL_AMOUNT_TO_CUT) / 100,
-    );
-    const remainingAmountCents = totalAmountCents - initialPaid;
-
     await prisma.$transaction(async (tx) => {
-      // Update booking as completed, clear OTP, and reset remainingAmount
+      // Update booking as completed, clear OTP
+      const updateBooking = {
+        // status: "COMPLETED",
+        // completedAt: new Date(),
+        // startRideOTP: null,
+        // endRideOTP: null,
+      };
+      if (type === "start") {
+        // Once verified then set it to TRUE
+        updateBooking.startRideOTPVerified = true;
+      } else if (type === "end") {
+        // Once verified then set it to TRUE
+        updateBooking.endRideOTPVerified = true;
+        updateBooking.status = "COMPLETED";
+        updateBooking.completedAt = new Date();
+      }
+
       await tx.booking.update({
         where: { id: bookingId },
-        data: {
-          status: "COMPLETED",
-          completedAt: new Date(),
-          otpCode: null,
-          remainingAmount: "0",
-        },
-      });
-
-      // Log debit transaction for customer
-      await tx.walletTransaction.create({
-        data: {
-          userId: customer.id,
-          counterpartyId: driver.id,
-          amount: remainingAmountCents,
-          type: "debit",
-          purpose: "ride_payment",
-          currency: "inr",
-          referenceId: bookingId,
-          status: "COMPLETED",
-          description:
-            "Final 50% ride payment debited from customer wallet on ride completion by OTP",
-        },
-      });
-
-      // Log credit transaction for driver
-      await tx.walletTransaction.create({
-        data: {
-          userId: driver.id,
-          counterpartyId: customer.id,
-          amount: remainingAmountCents,
-          type: "credit",
-          purpose: "ride_payment",
-          currency: "inr",
-          referenceId: bookingId,
-          status: "COMPLETED",
-          description:
-            "Final 50% ride payment credited to driver wallet on ride completion by OTP",
-        },
+        data: updateBooking,
       });
     });
 
     return res.status(200).json({
       success: true,
-      message: "Ride completed successfully by OTP verification.",
+      message:
+        type === "start"
+          ? "Ride start OTP verified successfully."
+          : type === "end"
+            ? "Ride end OTP verified successfully. Ride marked as completed."
+            : "Ride OTP verified successfully.",
     });
   } catch (error) {
     console.error("Error verifying OTP for complete ride:", error);
@@ -317,6 +300,7 @@ export const verifyCompleteRide = async (req, res) => {
 export const regenerateBookingOtp = async (req, res) => {
   try {
     const bookingId = req.params.id;
+    const type = req.params.type;
     if (!bookingId) {
       return res.status(400).json({
         success: false,
@@ -339,16 +323,28 @@ export const regenerateBookingOtp = async (req, res) => {
     // Generate a 4 or 6 digit OTP (choose length as needed)
     const otp = Math.floor(100000 + Math.random() * 900000); // 4-digit OTP
 
+    let updateData = {};
+    if (type === "start") {
+      updateData = { startRideOTP: otp.toString() };
+    } else if (type === "end") {
+      updateData = { endRideOTP: otp.toString() };
+    } else {
+      updateData = {
+        startRideOTP: null,
+        endRideOTP: null,
+      };
+    }
+
     // Save OTP code to the booking
     await prisma.booking.update({
       where: { id: bookingId },
-      data: { otpCode: otp.toString() },
+      data: updateData,
     });
 
     return res.status(200).json({
       success: true,
       message: "OTP regenerated successfully.",
-      otpCode: otp.toString(),
+      data: updateData,
     });
   } catch (error) {
     console.error("Error regenerating booking OTP:", error);
@@ -474,7 +470,7 @@ export const cancelMyActiveRide = async (req, res) => {
         status: "ACTIVE",
         biddingOpen: true,
         assignedDriverUserId: null,
-        otpCode: null,
+        endRideOTP: null,
       },
     });
     // Pending all rejected bids to make them available for bidding again
@@ -612,9 +608,6 @@ export const createBookingPayOrder = async (req, res) => {
       Math.round(bidAmount * driverCommissionPercent) / 100;
     const driverCommissionPercentAmount = commissionAmount.toFixed(2);
 
-    console.log("driverCommissionPercentAmount", driverCommissionPercentAmount);
-    // Create the Razorpay order
-
     // Try to find the user in your database (for customer_details in Razorpay order)
     const user = await prisma.user.findUnique({
       where: {
@@ -641,6 +634,19 @@ export const createBookingPayOrder = async (req, res) => {
         name: user?.name || "",
         contact: user?.mobile || "",
         email: user?.email || "",
+      },
+    });
+    // Create a payment record in DB with status "PENDING" and all relevant details
+
+    await prisma.paymentTransaction.create({
+      data: {
+        amount: Number(driverCommissionPercentAmount),
+        status: "PENDING",
+        userId: driverId,
+        purpose: order.receipt,
+        paymentId: null,
+        bookingId: bookingId,
+        orderId: order.id,
       },
     });
 

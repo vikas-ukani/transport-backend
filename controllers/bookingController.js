@@ -121,7 +121,7 @@ export const createBooking = async (req, res) => {
           biddingOpen: Boolean(booking.biddingOpen),
         },
       });
-      emitToBookingRoom(booking.id, "booking:updated", { booking });
+      emitToBookingRoom(booking.id, `booking:${booking.id}`, { booking });
     } catch (e) {
       console.warn("Socket broadcast booking:created failed", e.message);
     }
@@ -207,6 +207,12 @@ export const getBookingById = async (req, res) => {
         OR: [{ customerId: me }, ...(driverAccess ? [driverAccess] : [])],
       },
       include: {
+        userRatings: {
+          select: {
+            id: true,
+            rating: true,
+          },
+        },
         owner: {
           select: {
             id: true,
@@ -226,6 +232,7 @@ export const getBookingById = async (req, res) => {
                 photo: true,
                 latitude: true,
                 longitude: true,
+                rating: true,
               },
             },
             vehicle: {
@@ -472,7 +479,8 @@ export const placeBookingBid = async (req, res) => {
     }
 
     try {
-      emitToBookingRoom(bookingId, "booking:bid", { bid, bookingId });
+      emitToBookingRoom(bookingId, `booking:${bookingId}`, { bid, bookingId });
+      // emitToBookingRoom(bookingId, "booking:bid", { bid, bookingId });
       sendNotificationToUser(booking.customerId, {
         type: "booking_bid",
         title: existing ? "Bid amount updated." : "New driver bid",
@@ -597,6 +605,9 @@ export const getBidsForBooking = async (req, res) => {
         bookingId: bookingId,
         driverId: {
           not: undefined,
+        },
+        status: {
+          notIn: ["CANCELED", "REJECTED"],
         },
       },
       orderBy: {

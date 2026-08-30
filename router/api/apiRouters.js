@@ -1,67 +1,77 @@
 import { Router } from "express";
 import { getMe } from "../../controllers/authController.js";
 import {
-    cancelBookingById,
-    createBooking,
-    deleteBooking,
-    getBidsForBooking,
-    getBookingById,
-    getDriverRides,
-    getMyBookings,
-    placeBookingBid,
+  cancelBookingById,
+  createBooking,
+  deleteBooking,
+  getBidsForBooking,
+  getBookingById,
+  getDriverRides,
+  getMyBookings,
+  placeBookingBid,
 } from "../../controllers/bookingController.js";
 import {
-    getNotificationsByUserId,
-    markAllNotificationsAsRead,
-    markNotificationAsRead,
+  getNotificationsByUserId,
+  markAllNotificationsAsRead,
+  markNotificationAsRead,
 } from "../../controllers/notificationController.js";
 import {
-    createPost,
-    createPostPayOrder,
-    deletePost,
-    getAllPosts,
-    getAllVideos,
-    getMyPosts,
-    getPost,
-    likePost,
-    updatePost,
+  createPost,
+  createPostPayOrder,
+  deletePost,
+  getAllPosts,
+  getAllVideos,
+  getMyPosts,
+  getPost,
+  likePost,
+  updatePost,
 } from "../../controllers/postController.js";
 import {
-    acceptBookingBid,
-    cancelMyActiveRide,
-    createBookingPayOrder,
-    getMyActiveRide,
-    getMyFinishedRide,
-    regenerateBookingOtp,
-    verifyCompleteRide,
+  acceptBookingBid,
+  cancelMyActiveRide,
+  createBookingPayOrder,
+  getMyActiveRide,
+  getMyFinishedRide,
+  regenerateBookingOtp,
+  verifyCompleteRide,
 } from "../../controllers/rideController.js";
 import {
-    createUser,
-    getUsers,
-    partialUpdate,
+  createUser,
+  getUsers,
+  partialUpdate,
 } from "../../controllers/userController.js";
 import {
-    deleteVehicle,
-    getVehicleById,
-    getVehicles,
-    registerVehicle,
-    updateVehicle,
+  deleteVehicle,
+  getVehicleById,
+  getVehicles,
+  registerVehicle,
+  updateVehicle,
 } from "../../controllers/vehicleController.js";
 import {
-    createGaragePayOrder,
-    verifyBookingPayment,
-    verifyPayment,
+  createGaragePayOrder,
+  verifyBookingPayment,
+  verifyPayment,
 } from "../../controllers/paymentController.js";
 import { validateRequest } from "../../lib/validateRequest.js";
 import { apiMiddleware } from "../../middlewares/authMiddleware.js";
 import {
-    CreateBookingSchema,
-    createPostSchema,
-    placeBookingBidSchema,
-    RegisterVehicleSchema,
-    UpdateVehicleSchema,
+  CreateBookingSchema,
+  createPostSchema,
+  placeBookingBidSchema,
+  RegisterVehicleSchema,
+  UpdateVehicleSchema,
 } from "../../schema/apiSchema.js";
-import { createGarage, deleteGarageById, getCreateGarageAmount, getGarageById, getMyGarages, getNearByGarages, updateGarage } from "../../controllers/garageController.js";
+import {
+  createGarage,
+  deleteGarageById,
+  getCreateGarageAmount,
+  getGarageById,
+  getMyGarages,
+  getNearByGarages,
+  updateGarage,
+} from "../../controllers/garageController.js";
+import { createBookingReview } from "../../controllers/reviewController.js";
+import { getTruckSpecifications } from "../../controllers/truckSpecification.js";
 
 // API ////   ---------
 
@@ -111,8 +121,8 @@ apiRouters.post(
   placeBookingBid,
 );
 apiRouters.post("/booking/:id/bids/:bidId/accept", acceptBookingBid);
-apiRouters.get("/booking/:id/complete-ride-otp/:otp", verifyCompleteRide);
-apiRouters.get("/booking/:id/regenerate-otp", regenerateBookingOtp);
+apiRouters.get("/booking/:id/complete-ride-otp/:otp/:type", verifyCompleteRide);
+apiRouters.get("/booking/:id/regenerate-otp/:type", regenerateBookingOtp);
 apiRouters.get("/booking/:id/bids", getBidsForBooking);
 apiRouters.get("/driver-rides", getDriverRides);
 apiRouters.get("/my-running-rides", getMyActiveRide);
@@ -126,7 +136,6 @@ apiRouters.get("/notifications", getNotificationsByUserId);
 apiRouters.patch("/notifications/:id/read", markNotificationAsRead);
 apiRouters.patch("/notifications/read-all", markAllNotificationsAsRead);
 
-
 // GARAGEs
 apiRouters.get("/get-create-garage-amount", getCreateGarageAmount);
 apiRouters.get("/get-nearby-garages", getNearByGarages);
@@ -136,7 +145,9 @@ apiRouters.post("/create-garages", createGarage);
 apiRouters.put("/update-garage/:id", updateGarage);
 apiRouters.delete("/delete-garage/:id", deleteGarageById);
 apiRouters.get("/create-garage-pay-order", createGaragePayOrder);
- 
+apiRouters.get("/truck-specifications", getTruckSpecifications);
 
+// REVIEW
+apiRouters.post("/create-booking-review", createBookingReview);
 
 export default apiRouters;
