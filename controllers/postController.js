@@ -65,6 +65,13 @@ export const getAllPosts = async (req, res, next) => {
       skip,
       take: limit,
       orderBy: { createdAt: "desc" },
+      include: {
+        user: {
+          select: {
+            name: true,
+          },
+        },
+      },
     });
     const newPosts = await Promise.all(
       posts.map(async (post) => {
@@ -123,6 +130,13 @@ export const getMyPosts = async (req, res, next) => {
       skip,
       take: limit,
       orderBy: { createdAt: "desc" },
+      include: {
+        user: {
+          select: {
+            name: true,
+          },
+        },
+      },
     });
     const newPosts = await Promise.all(
       posts.map(async (post) => {
@@ -221,7 +235,6 @@ export const getPost = async (req, res, next) => {
       },
     });
 
-    console.log("post", post);
     // Fetch images from media table for the imageIds of this post
     let images = [];
     if (

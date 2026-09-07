@@ -84,34 +84,34 @@ export const acceptBookingBid = async (req, res) => {
       });
 
       // Log debit transaction for customer
-      await tx.walletTransaction.create({
-        data: {
-          userId: customer.id,
-          counterpartyId: driver.id,
-          amount: partialAmountCents,
-          type: "debit",
-          purpose: "ride_payment",
-          currency: "inr",
-          referenceId: bookingId,
-          status: "COMPLETED",
-          description: `${PARTIAL_AMOUNT_TO_CUT}% payment debited from customer wallet on bid acceptance`,
-        },
-      });
+      // await tx.walletTransaction.create({
+      //   data: {
+      //     userId: customer.id,
+      //     counterpartyId: driver.id,
+      //     amount: partialAmountCents,
+      //     type: "debit",
+      //     purpose: "ride_payment",
+      //     currency: "inr",
+      //     referenceId: bookingId,
+      //     status: "COMPLETED",
+      //     description: `${PARTIAL_AMOUNT_TO_CUT}% payment debited from customer wallet on bid acceptance`,
+      //   },
+      // });
 
-      // Log credit transaction for driver
-      await tx.walletTransaction.create({
-        data: {
-          userId: driver.id,
-          counterpartyId: customer.id,
-          amount: partialAmountCents,
-          type: "credit",
-          purpose: "ride_payment",
-          currency: "inr",
-          referenceId: bookingId,
-          status: "COMPLETED",
-          description: `${PARTIAL_AMOUNT_TO_CUT}% payment credited to driver wallet on bid acceptance`,
-        },
-      });
+      // // Log credit transaction for driver
+      // await tx.walletTransaction.create({
+      //   data: {
+      //     userId: driver.id,
+      //     counterpartyId: customer.id,
+      //     amount: partialAmountCents,
+      //     type: "credit",
+      //     purpose: "ride_payment",
+      //     currency: "inr",
+      //     referenceId: bookingId,
+      //     status: "COMPLETED",
+      //     description: `${PARTIAL_AMOUNT_TO_CUT}% payment credited to driver wallet on bid acceptance`,
+      //   },
+      // });
     });
 
     const updated = await prisma.booking.findUnique({

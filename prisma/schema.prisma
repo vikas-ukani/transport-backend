@@ -232,7 +232,7 @@ model Booking {
 
   finalAmount String?
 
-  // Transport bidding (drivers submit prices; customer accepts one)
+  // SafarPath bidding (drivers submit prices; customer accepts one)
   biddingOpen          Boolean @default(true)
   assignedDriverUserId String? @db.ObjectId
   // assignedDriverUserId String?  @relation("User", fields: [driverId], references: [id])
